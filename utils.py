@@ -35,7 +35,7 @@ def merge_config_to_args(args, cfg):
 
     # data
     args.slide_list = os.path.join(args.data_conf_dir, 'slide_list.pkl')
-    args.task_list, args.lesions = get_slide_config(os.path.join("/kaggle/working/kat-wsi-tcga-classification/dataset/tcga_lung/dataset_config.pkl"))
+    args.task_list, args.lesions = get_slide_config(os.path.join("/kaggle/working/kat-wsi-tcga/dataset/tcga_lung/dataset_config.pkl"))
     args.label_id = cfg.DATA.LABEL_ID
     args.test_ratio = cfg.DATA.TEST_RATIO
     args.fold_num = cfg.DATA.FOLD_NUM
