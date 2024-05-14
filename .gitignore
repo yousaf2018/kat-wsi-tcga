@@ -1,0 +1,5 @@
+data
+*.pyc
+*.pyd
+*.npy
+*.pkl
