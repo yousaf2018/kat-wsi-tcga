@@ -190,7 +190,7 @@ class KernelWSILoader(torch.utils.data.Dataset):
     def get_weights(self):
         labels = np.asarray([path[1][self.ti-1] for path in self.dl])
         tmp = np.bincount(labels)
-        weights = 1 / np.asarray(tmp[labels], np.float)
+        weights = 1 / np.asarray(tmp[labels], np.float64)
 
         return weights
 
