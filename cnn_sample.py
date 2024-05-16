@@ -88,7 +88,7 @@ def sampling_slide(slide_info):
             if file.endswith(".svs") and file.split(".svs")[0] == slide_rpath:
                 slide_path = os.path.join(root, file.split('.svs')[0])
                 break
-    tissue_mask = get_tissue_mask(cv2.imread(slide_path))
+    tissue_mask = get_tissue_mask(cv2.imread(slide_path+".svs"))
     
     content_mat = cv2.blur(tissue_mask, ksize=args.filter_size, anchor=(0, 0))
     content_mat = content_mat[::args.srstep, ::args.srstep]
