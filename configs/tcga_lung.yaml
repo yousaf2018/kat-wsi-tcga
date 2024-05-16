@@ -1,5 +1,5 @@
 DATA:
-  LOCAL_SLIDE_DIR: '/kaggle/input/wsi-patched-dataset-tcga'
+  LOCAL_SLIDE_DIR: '/kaggle/input/tcga-wsi-svs'
   DATASET_CONFIG_DIR: './dataset/tcga_lung'
   DATA_SAVE_DIR: './data/tcga_lung'
   LABEL_ID: 2 # 1 for subtype task, 2 for binary task
