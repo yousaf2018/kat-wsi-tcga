@@ -81,21 +81,14 @@ def sampling_slide(slide_info):
         print(slide_guid, 'is already sampled. skip.')
         return 0
 
-    slide_path = os.path.join(args.slide_dir, slide_rpath)
-    image_dir = os.path.join(slide_path, slide_rpath)
+    # slide_path = os.path.join(args.slide_dir, slide_rpath)
 
-    # List all files in the directory
-    image_files = os.listdir(image_dir)
-
-    # Filter out non-JPEG files
-    image_files = [f for f in image_files if f.lower().endswith('.svs')]
-
-    # Select a random file from the list
-    random_file = random.choice(image_files)
-
-    # Read the selected image for tissue mask
-    image_path = os.path.join(image_dir, random_file)
-    tissue_mask = get_tissue_mask(cv2.imread(image_path))
+    for root, dirs, files in os.walk(args.slide_save_dir):
+        for file in files:
+            if file.endswith(".svs") and file.split(".svs")[0] == slide_rpath:
+                slide_path = os.path.join(root, file.split('.svs')[0])
+                break
+    tissue_mask = get_tissue_mask(cv2.imread(slide_path))
     
     content_mat = cv2.blur(tissue_mask, ksize=args.filter_size, anchor=(0, 0))
     content_mat = content_mat[::args.srstep, ::args.srstep]
