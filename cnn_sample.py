@@ -83,7 +83,7 @@ def sampling_slide(slide_info):
 
     # slide_path = os.path.join(args.slide_dir, slide_rpath)
 
-    for root, dirs, files in os.walk(args.slide_save_dir):
+    for root, dirs, files in os.walk(args.slide_dir):
         for file in files:
             if file.endswith(".svs") and file.split(".svs")[0] == slide_rpath:
                 slide_path = os.path.join(root, file.split('.svs')[0])
