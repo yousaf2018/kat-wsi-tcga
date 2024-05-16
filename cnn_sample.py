@@ -73,6 +73,7 @@ def main(args):
 
 def sampling_slide(slide_info):
     slide_guid, slide_rpath, slide_label = slide_info[0]
+    print("Here is slide to process -->", slide_guid, slide_rpath, slide_label)
     args = slide_info[1]
 
     time_file_path = os.path.join(args.dataset_path, slide_guid, 'info.txt')
