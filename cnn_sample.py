@@ -73,7 +73,6 @@ def main(args):
 
 def sampling_slide(slide_info):
     slide_guid, slide_rpath, slide_label = slide_info[0]
-    print("Here is slide to process -->", slide_guid, slide_rpath, slide_label)
     args = slide_info[1]
 
     time_file_path = os.path.join(args.dataset_path, slide_guid, 'info.txt')
@@ -81,14 +80,11 @@ def sampling_slide(slide_info):
         print(slide_guid, 'is already sampled. skip.')
         return 0
 
-    # slide_path = os.path.join(args.slide_dir, slide_rpath)
+    slide_path = os.path.join(args.slide_dir, slide_rpath)
+    image_dir = os.path.join(slide_path, scales[args.level])
 
-    for root, dirs, files in os.walk(args.slide_dir):
-        for file in files:
-            if file.endswith(".svs") and file.split(".svs")[0] == slide_rpath:
-                slide_path = os.path.join(root, file.split('.svs')[0])
-                break
-    tissue_mask = get_tissue_mask(cv2.imread(slide_path+".svs"))
+    tissue_mask = get_tissue_mask(cv2.imread(
+            os.path.join(slide_path, 'Overview.jpg')))
     
     content_mat = cv2.blur(tissue_mask, ksize=args.filter_size, anchor=(0, 0))
     content_mat = content_mat[::args.srstep, ::args.srstep]
