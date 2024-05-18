@@ -12,6 +12,7 @@ import argparse
 from multiprocessing import Pool
 from yacs.config import CfgNode
 from openslide import OpenSlide
+from utils import merge_config_to_args
 
 parser = argparse.ArgumentParser('Sampling patches for CNN training')
 parser.add_argument('--cfg', type=str, default='',
