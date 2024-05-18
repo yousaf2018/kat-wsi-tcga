@@ -255,6 +255,7 @@ def calc_classification_metrics(y_preds, y_labels, num_classes=None, prefix='Eva
     results["m_f1"] = f1_score(y_labels, np.argmax(y_preds, axis=1), average='macro')
     results["w_f1"] = f1_score(y_labels, np.argmax(y_preds, axis=1), average='weighted')
     if num_classes < 3:
+        print(y_labels, y_preds[:,1])
         results["macro"] = roc_auc_score(y_labels, y_preds[:,1], average='macro', multi_class='ovo')
         results["micro"] = roc_auc_score(y_labels, y_preds[:,1], average='weighted', multi_class='ovr')
     else:
