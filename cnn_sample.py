@@ -13,7 +13,7 @@ from multiprocessing import Pool
 from yacs.config import CfgNode
 from loader import get_tissue_mask, extract_tile
 from utils import *
-
+from openslide import OpenSlide
 
 parser = argparse.ArgumentParser('Sampling patches for CNN trianing')
 parser.add_argument('--cfg', type=str, default='',
@@ -69,7 +69,13 @@ def main(args):
     make_list(args)
 
     return 0
-
+def make_overview(slide_path, output_path, magnification=5):
+    slide = OpenSlide(slide_path)
+    slide_size = slide.level_dimensions[3]  # Level 3 magnification
+    overview_scale = magnification / 5  # Assuming MAGNIFICATION_DICT['Overview'] = 5x
+    overview_size = (int(slide_size[0] / overview_scale), int(slide_size[1] / overview_scale))
+    overview_image = slide.get_thumbnail(overview_size)
+    return overview_image
 
 def sampling_slide(slide_info):
     slide_guid, slide_rpath, slide_label = slide_info[0]
@@ -88,8 +94,11 @@ def sampling_slide(slide_info):
             if file.endswith(".svs") and file.split(".svs")[0] == slide_rpath:
                 slide_path = os.path.join(root, file.split('.svs')[0])
                 break
-    tissue_mask = get_tissue_mask(cv2.imread(slide_path+".svs"))
-    
+            
+    overview_image = make_overview(slide_path + ".svs")  
+    overview_image_np = np.array(overview_image)
+    # Call the get_tissue_mask method with the overview image as input
+    tissue_mask = get_tissue_mask(overview_image_np)    
     content_mat = cv2.blur(tissue_mask, ksize=args.filter_size, anchor=(0, 0))
     content_mat = content_mat[::args.srstep, ::args.srstep]
     
