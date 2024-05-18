@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 # date: 2022/06
-# author: Yushan Zheng
-# email: yszheng@buaa.edu.cn
+# author:Yushan Zheng
+# emai:yszheng@buaa.edu.cn
 
 import numpy as np
 import pickle
@@ -11,10 +11,11 @@ import cv2
 import argparse
 from multiprocessing import Pool
 from yacs.config import CfgNode
+from loader import get_tissue_mask, extract_tile
+from utils import *
 from openslide import OpenSlide
-from utils import merge_config_to_args, get_sampling_path, get_data_list_path
 
-parser = argparse.ArgumentParser('Sampling patches for CNN training')
+parser = argparse.ArgumentParser('Sampling patches for CNN trianing')
 parser.add_argument('--cfg', type=str, default='',
                     help='The path of yaml config file')
 
@@ -68,6 +69,13 @@ def main(args):
     make_list(args)
 
     return 0
+def make_overview(slide_path, magnification=5):
+    slide = OpenSlide(slide_path)
+    slide_size = slide.level_dimensions[0]  # Level 3 magnification
+    overview_scale = magnification / 5  # Assuming MAGNIFICATION_DICT['Overview'] = 5x
+    overview_size = (int(slide_size[0] / overview_scale), int(slide_size[1] / overview_scale))
+    overview_image = slide.get_thumbnail(overview_size)
+    return overview_image
 
 def sampling_slide(slide_info):
     slide_guid, slide_rpath, slide_label = slide_info[0]
@@ -79,16 +87,100 @@ def sampling_slide(slide_info):
         print(slide_guid, 'is already sampled. skip.')
         return 0
 
+    # slide_path = os.path.join(args.slide_dir, slide_rpath)
+
     for root, dirs, files in os.walk(args.slide_dir):
         for file in files:
             if file.endswith(".svs") and file.split(".svs")[0] == slide_rpath:
                 slide_path = os.path.join(root, file.split('.svs')[0])
                 break
             
-    # Here, you can directly process the SVS images without creating an overview image
-    # For example, you can extract and save tiles from the SVS image directly
+    overview_image = make_overview(slide_path + ".svs")  
+    overview_image_np = np.array(overview_image)
+    # Call the get_tissue_mask method with the overview image as input
+    tissue_mask = get_tissue_mask(overview_image_np)    
+    content_mat = cv2.blur(tissue_mask, ksize=args.filter_size, anchor=(0, 0))
+    content_mat = content_mat[::args.srstep, ::args.srstep]
+    del overview_image
+    del overview_image_np
+    del tissue_mask
+    mask_path = os.path.join(slide_path, 'AnnotationMask.png')
+    # Use the annotation to decide the label of the patch if annotation is available.
+    # Otherwise, assign a psudo-label to the patch based on the WSI label it belongs to.
+    if not args.ignore_annotation and os.path.exists(mask_path):
+        mask = cv2.imread(os.path.join(slide_path, 'AnnotationMask.png'), 0)
+        positive_mat = cv2.blur(
+            (mask > 0)*255, ksize=args.filter_size, anchor=(0, 0))
+        positive_mat = positive_mat[::args.srstep, ::args.srstep]
 
-def make_list(args):
+        # the left-top position of benign patches
+        bn_lt = np.transpose(
+            np.asarray(
+                np.where((positive_mat < args.negative_ratio * 255)
+                        & (content_mat > args.intensity_thred)), np.int32))
+        if bn_lt.shape[0] > args.max_per_class:
+            bn_lt = bn_lt[np.random.choice(
+                bn_lt.shape[0], args.max_per_class, replace=False)]
+
+        if bn_lt.shape[0] > 0:
+            slide_save_dir = os.path.join(args.dataset_path, slide_guid, '0')
+            if not os.path.exists(slide_save_dir):
+                os.makedirs(slide_save_dir)
+
+            extract_and_save_tiles(image_dir, slide_save_dir, bn_lt,
+                                args.tile_size, args.imsize, args.sample_step, args.invert_rgb)
+
+        class_list = np.unique(mask[mask > 0])
+        for c in class_list:
+            class_index_mat = cv2.blur(
+                (mask == c)*255, ksize=args.filter_size, anchor=(0, 0))
+            class_index_mat = class_index_mat[::args.srstep, ::args.srstep]
+
+            # the left-top position of tumor patches
+            tm_lt = np.transpose(
+                np.asarray(
+                    np.where((class_index_mat > args.positive_ratio * 255)
+                            & (content_mat > args.intensity_thred)), np.int32))
+
+            if tm_lt.shape[0] > args.max_per_class:
+                tm_lt = tm_lt[np.random.choice(
+                    tm_lt.shape[0], args.max_per_class, replace=False)]
+
+            slide_save_dir = os.path.join(args.dataset_path, slide_guid, str(c))
+            if not os.path.exists(slide_save_dir):
+                os.makedirs(slide_save_dir)
+
+            extract_and_save_tiles(image_dir, slide_save_dir, tm_lt,
+                                args.tile_size, args.imsize, args.sample_step, args.invert_rgb)
+
+            if args.save_mask:
+                extract_and_save_masks(mask, slide_save_dir, tm_lt, args)
+    else:
+        content_lt = np.transpose(
+            np.asarray(
+                np.where(content_mat > args.intensity_thred), np.int32))
+        if content_lt.shape[0] > args.max_per_class:
+            content_lt = content_lt[np.random.choice(
+                content_lt.shape[0], args.max_per_class, replace=False)]
+        
+        if content_lt.shape[0] > 0:
+            slide_save_dir = os.path.join(args.dataset_path, slide_guid, str(slide_label))
+            if not os.path.exists(slide_save_dir):
+                os.makedirs(slide_save_dir)
+
+            extract_and_save_tiles(image_dir, slide_save_dir, content_lt,
+                                args.tile_size, args.imsize, args.sample_step, args.invert_rgb)
+
+        print(slide_guid, 'Patch num: ', content_lt.shape[0])
+
+    if os.path.exists(os.path.join(args.dataset_path, slide_guid)):
+        
+        with open(time_file_path, 'w') as f:
+            f.write('Sampling finished')
+   
+
+
+def make_list(args, min_file_size=5 * 1024):
     """
     Attributes:
         min_file_size : The minimum size of the jpeg considered in the training.
@@ -206,6 +298,32 @@ def make_list(args):
                 pickle.dump({'base_dir': dataset_path, 'list': test_set}, f)
 
     return 0
+
+
+def extract_and_save_tiles(image_dir, slide_save_dir, position_list, tile_size,
+                           imsize, step, invert_rgb=False):
+    
+    for pos in position_list:
+        img = extract_tile(image_dir, tile_size, pos[1] * step, pos[0] * step,
+                           imsize, imsize)
+        
+        if len(img) > 0:
+            if invert_rgb:
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(
+                os.path.join(slide_save_dir, '{:04d}_{:04d}.jpg'.format(pos[1], pos[0])), img)
+
+def extract_and_save_masks(slide_mask, slide_save_dir, position_list, args):
+    for pos in position_list:
+        y = pos[0] * args.rstep
+        x = pos[1] * args.rstep
+        img = slide_mask[y:(y + args.msize), x:(x + args.msize)]
+        if len(img) > 0:
+            img = cv2.resize(img, (args.imsize, args.imsize),
+                             interpolation=cv2.INTER_NEAREST)
+            cv2.imwrite(
+                os.path.join(slide_save_dir, '{:04d}_{:04d}_mask.png'.format(pos[1], pos[0])), img*50)
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
