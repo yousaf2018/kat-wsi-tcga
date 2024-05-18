@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding:utf-8 -*-
 # date: 2022/06
 # author:Yushan Zheng
