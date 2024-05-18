@@ -69,7 +69,7 @@ def main(args):
     make_list(args)
 
     return 0
-def make_overview(slide_path, output_path, magnification=5):
+def make_overview(slide_path, magnification=5):
     slide = OpenSlide(slide_path)
     slide_size = slide.level_dimensions[3]  # Level 3 magnification
     overview_scale = magnification / 5  # Assuming MAGNIFICATION_DICT['Overview'] = 5x
