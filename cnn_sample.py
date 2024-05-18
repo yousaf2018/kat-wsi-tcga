@@ -71,7 +71,7 @@ def main(args):
     return 0
 def make_overview(slide_path, magnification=5):
     slide = OpenSlide(slide_path)
-    slide_size = slide.level_dimensions[3]  # Level 3 magnification
+    slide_size = slide.level_dimensions[0]  # Level 3 magnification
     overview_scale = magnification / 5  # Assuming MAGNIFICATION_DICT['Overview'] = 5x
     overview_size = (int(slide_size[0] / overview_scale), int(slide_size[1] / overview_scale))
     overview_image = slide.get_thumbnail(overview_size)
