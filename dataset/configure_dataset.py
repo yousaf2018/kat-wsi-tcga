@@ -47,11 +47,11 @@ with open(os.path.join(data_list_dir, 'slide_list.pkl'), 'wb') as f:
     )
 
 # Make datset config
-lesions = ["Normal", "Cancer"]
+lesions = ["Normal", "Cancer",]
 
 tasks = {
     1:{'num_classes':3, 'map':{0:0, 1:1, 2:2}},
-    2:{'num_classes':2, 'map':{0:0, 1:1}},
+    2:{'num_classes':2, 'map':{0:0, 1:1, 2:1}},
 }
 
 with open('/kaggle/working/kat-wsi-tcga/dataset/tcga_lung/dataset_config.pkl', 'wb') as f:
