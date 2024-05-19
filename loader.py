@@ -182,7 +182,7 @@ class KernelWSILoader(torch.utils.data.Dataset):
 
 
     def get_wsi_data_path(self, idx):
-        print(self.list_dir, self.dl[idx][0])
+        # print(self.list_dir, self.dl[idx][0])
         return os.path.join(self.list_dir, self.dl[idx][0])
 
     def get_feat_dim(self):
