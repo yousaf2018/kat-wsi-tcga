@@ -256,8 +256,15 @@ def calc_classification_metrics(y_preds, y_labels, num_classes=None, prefix='Eva
     results["w_f1"] = f1_score(y_labels, np.argmax(y_preds, axis=1), average='weighted')
     if num_classes < 3:
         print(y_labels, y_preds[:,1])
-        results["macro"] = roc_auc_score(y_labels, y_preds[:,1], average='macro', multi_class='ovo')
-        results["micro"] = roc_auc_score(y_labels, y_preds[:,1], average='weighted', multi_class='ovr')
+        if len(np.unique(y_true)) == 1:
+            # Handle the case where only one class is present
+            # You might want to return a default value or handle it differently based on your use case
+            print("Only one class present in y_true.")
+        else:
+            # Calculate ROC AUC score normally
+            results["macro"] = roc_auc_score(y_labels, y_preds[:,1], average='macro', multi_class='ovo')
+            results["micro"] = roc_auc_score(y_labels, y_preds[:,1], average='weighted', multi_class='ovr')
+
     else:
         results["macro"] = roc_auc_score(y_labels, y_preds, average='macro', multi_class='ovo')
         results["micro"] = roc_auc_score(y_labels, y_preds, average='weighted', multi_class='ovr')
