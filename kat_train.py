@@ -87,6 +87,7 @@ def arg_parse():
 
     return parser.parse_args()
 
+
 def main(args):
     if args.cfg:
         cfg = CfgNode(new_allowed=True)
@@ -237,195 +238,224 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         model = torch.nn.DataParallel(model).cuda()
 
-    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-    cudnn.benchmark = True
-
-    train_sampler = None
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_set)
+    if args.weighted_sample:
+        print('activate weighted sampling')
+        if args.distributed:
+            train_sampler = DistributedWeightedSampler(
+                train_set, train_set.get_weights(), args.world_size, args.rank)
+        else:
+            train_sampler = torch.utils.data.sampler.WeightedRandomSampler(
+                train_set.get_weights(), len(train_set), replacement=True
+            )
+    else:
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                train_set)
+        else:
+            train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_set, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.num_workers, pin_memory=True, sampler=train_sampler)
+            train_set, batch_size=args.batch_size, shuffle=args.shuffle_train,
+            num_workers=args.num_workers, sampler=train_sampler)
 
-    val_loader, test_loader = None, None
-    val_loader, test_loader = load_val_test_data(args)
+    # validation graph data
+    val_path = os.path.join(graph_list_dir, 'val')
+    if not os.path.exists(val_path):
+        valid_loader = None
+    else:
+        valid_set = KernelWSILoader(val_path,
+            max_node_number=args.max_nodes,
+            patch_per_kernel=args.npk,
+            task_id=args.label_id,
+            max_kernel_num=args.kn,
+            node_aug=False,
+            two_augments=False
+            )
+        valid_loader = torch.utils.data.DataLoader(
+            valid_set, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.num_workers, drop_last=False, sampler=None
+            )
+        
+    # test graph data
+    test_path = os.path.join(graph_list_dir, 'test')
+    if not os.path.exists(test_path):
+        test_loader = None
+    else:
+        test_set = KernelWSILoader(test_path,
+            max_node_number=args.max_nodes,
+            patch_per_kernel=args.npk,
+            task_id=args.label_id,
+            max_kernel_num=args.kn,
+            node_aug=False,
+            two_augments=False
+            )
+        test_loader = torch.utils.data.DataLoader(
+            test_set, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.num_workers, drop_last=False, sampler=None
+            )
 
-    best_epoch = -1
-    best_loss = float('inf')
-    best_acc = 0
+    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.7)
 
-    log_dir = os.path.join(graph_model_path, 'log')
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    log_file = os.path.join(log_dir, '{}.txt'.format(args.label_id))
-    logger = Logger(log_file)
-    logger.write('{}\n'.format(str(args)))
+    if checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
 
-    train_losses = []
-    train_accuracies = []
-    val_losses = []
-    val_accuracies = []
+    if args.eval_model and test_loader is not None:
+        model_params = torch.load(args.eval_model, map_location='cpu')
+        model.load_state_dict(model_params['state_dict'])
+
+        test_acc, test_cm, test_auc, test_data = evaluate(test_loader, model, criterion, args, 'Valid')
+
+        with open(os.path.join(graph_model_path,  'eval.pkl'), 'wb') as f:
+            pickle.dump({'acc':test_acc, 'cm':test_cm, 'auc':test_auc,'data':test_data}, f)
+
+        return 0
+
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                    and args.rank == 0):    
+        if not os.path.exists(graph_model_path):
+            os.makedirs(graph_model_path)
+        with open(graph_model_path + '.csv', 'a') as f:
+            f.write('epoch, train acc, V, val acc, val w-auc, val m-auc, val w-f1, val m-f1 ,\
+                T, tet acc, test w-auc, test m-auc, test w-f1, test m-f1, \n')
 
     for epoch in range(args.start_epoch, args.num_epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
-        train_loss, train_acc = train(train_loader, model, criterion, optimizer, epoch, args)
-        train_losses.append(train_loss)
-        train_accuracies.append(train_acc)
+        begin_time = time.time()
 
-        is_best = False
-        if epoch % args.eval_freq == 0 or epoch == args.num_epochs - 1:
-            val_loss, val_acc = validate(val_loader, model, criterion, args)
-            val_losses.append(val_loss)
-            val_accuracies.append(val_acc)
+        train_acc = train(train_loader, model, criterion, optimizer, epoch, args)
+        print('epoch time: ', time.time()-begin_time)
+        scheduler.step()
+        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                    and args.rank == 0):
+            if epoch % args.eval_freq == 0:
+                if valid_loader is not None:
+                    val_acc, val_cm, val_auc, val_data = evaluate(valid_loader, model, criterion, args, 'Valid')
 
-            if val_loss < best_loss:
-                is_best = True
-                best_epoch = epoch
-                best_loss = val_loss
-                best_acc = val_acc
+                if test_loader is not None:
+                    test_acc, test_cm, test_auc, test_data = evaluate(test_loader, model, criterion, args, 'Test')
 
-        logger.write('[{}] train_loss:{:.5f}, train_acc:{:.5f} val_loss:{:.5f}, val_acc:{:.5f}\n'.format(
-            epoch, train_loss, train_acc, val_loss, val_acc))
+                if valid_loader is not None:
+                    with open(graph_model_path + '.csv', 'a') as f:
+                        f.write('{},{:.3f},V,{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},T,{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}, SUB,'.format(
+                            epoch, train_acc/100.0, 
+                                val_acc/100.0, val_auc['micro'], val_auc['macro'], val_auc['w_f1'], val_auc['m_f1'],
+                                test_acc/100.0, test_auc['micro'], test_auc['macro'], test_auc['w_f1'], test_auc['m_f1'],)
+                                )
+                        for cn in range(test_cm.shape[0]):
+                            f.write(',{:.2f}'.format(test_cm[cn, cn]))
+                        f.write('\n') 
 
-        if args.gpu is None or (args.gpu == 0 and not args.multiprocessing_distributed):
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'arch': args.arch,
-                'state_dict': model.state_dict(),
-                'best_loss': best_loss,
-                'best_acc': best_acc,
-            }, is_best, graph_model_path)
+                result_data_path = os.path.join(graph_model_path, 'result{}.pkl'.format(epoch + 1))
+                with open(result_data_path, 'wb') as f:
+                    pickle.dump({'val':val_data, 'test':test_data}, f)
 
-    if test_loader:
-        model_best = model
-        if args.gpu is not None:
-            model_best = model_best.cuda(args.gpu)
-        if args.gpu is None or (args.gpu == 0 and not args.multiprocessing_distributed):
-            best_model_path = os.path.join(
-                graph_model_path, 'model_best.pth.tar')
-            if os.path.exists(best_model_path):
-                print("=> loading best model")
-                resume_model_params = torch.load(
-                    best_model_path, map_location=torch.device('cpu'))
-                model_best.load_state_dict(
-                    resume_model_params['state_dict'])
-            else:
-                print("best model path not found")
-            evaluate(test_loader, model_best, args)
-    
-    # Plot training and validation loss
-    plt.figure()
-    plt.plot(range(args.start_epoch, args.num_epochs), train_losses, label='Training Loss')
-    plt.plot(range(args.start_epoch, args.num_epochs, args.eval_freq), val_losses, label='Validation Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.title('Training and Validation Loss')
-    plt.show()
+                torch.save({
+                        'epoch': epoch + 1,
+                        'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
+                        'optimizer' : optimizer.state_dict(),
+                    }, os.path.join(graph_model_path, 'checkpoint.pth.tar'))
 
-    # Plot training and validation accuracy
-    plt.figure()
-    plt.plot(range(args.start_epoch, args.num_epochs), train_accuracies, label='Training Accuracy')
-    plt.plot(range(args.start_epoch, args.num_epochs, args.eval_freq), val_accuracies, label='Validation Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.title('Training and Validation Accuracy')
-    plt.show()
+                torch.save({
+                        'epoch': epoch + 1,
+                        'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
+                        'optimizer' : optimizer.state_dict(),
+                        'args': args
+                    }, os.path.join(graph_model_path, 'model_{}.pth.tar'.format(epoch + 1)))
+
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
-    model.train()
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
+    top2 = AverageMeter('Acc@2', ':6.2f')
+    progress = ProgressMeter(len(train_loader), batch_time, data_time, losses, top1,
+                             top2, prefix="Epoch: [{}]".format(epoch))
+
+    # switch to train mode
+    model.train()
 
     end = time.time()
-    for i, (features, label) in enumerate(train_loader):
+    for i, (data, label) in enumerate(train_loader):
+        # measure data loading time
         data_time.update(time.time() - end)
+        target = label.cuda(non_blocking=True)
 
-        if args.gpu is not None:
-            features = features.cuda(args.gpu, non_blocking=True)
-            label = label.cuda(args.gpu, non_blocking=True)
+        # compute output
+        _, output = kat_inference(model, data)
+        loss = criterion(output, target)
 
-        output = model(features)
-        loss = criterion(output, label)
+        # measure accuracy and record loss
+        acc1, acc2 = accuracy(F.softmax(output, dim=1), target, topk=(1, 2))
+        losses.update(loss.item(), target.size(0))
+        top1.update(acc1[0], target.size(0))
+        top2.update(acc2[0], target.size(0))
 
-        acc1, = accuracy(output, label, topk=(1,))
-        losses.update(loss.item(), features.size(0))
-        top1.update(acc1[0], features.size(0))
-
+        # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
         if i % args.print_freq == 0:
-            print('[{0}][{1}/{2}] '
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f}) '
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                  'Loss {loss.val:.4f} ({loss.avg:.4f}) '
-                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      epoch, i, len(train_loader), batch_time=batch_time,
-                      data_time=data_time, loss=losses, top1=top1))
+            progress.print(i)
 
-    return losses.avg, top1.avg
+    return top1.avg
 
-def validate(val_loader, model, criterion, args):
-    model.eval()
+
+def evaluate(val_loader, model, criterion, args, prefix='Test'):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
+    top2 = AverageMeter('Acc@2', ':6.2f')
+    progress = ProgressMeter(len(val_loader), batch_time, losses, top1, top2,
+                             prefix=prefix)
 
+    # switch to evaluate mode
+    model.eval()
+    y_preds = []
+    y_labels = []
+    end = time.time()
+    
+    processing_time = 0
     with torch.no_grad():
-        end = time.time()
-        for i, (features, label) in enumerate(val_loader):
-            if args.gpu is not None:
-                features = features.cuda(args.gpu, non_blocking=True)
-                label = label.cuda(args.gpu, non_blocking=True)
+        for i, (data, label) in enumerate(val_loader):
+            target = label.cuda(non_blocking=True)
+            # compute output
+            pro_start = time.time()
+            _, output = kat_inference(model, data)
+            processing_time += (time.time() - pro_start)
+            loss = criterion(output, target)
 
-            output = model(features)
-            loss = criterion(output, label)
+            y_preds.append(F.softmax(output, dim=1).cpu().data)
+            y_labels.append(label)
+            # measure accuracy and record loss
+            acc1, acc2 = accuracy(output, target, topk=(1, 2))
+            losses.update(loss.item(), target.size(0))
+            top1.update(acc1[0], target.size(0))
+            top2.update(acc2[0], target.size(0))
 
-            acc1, = accuracy(output, label, topk=(1,))
-            losses.update(loss.item(), features.size(0))
-            top1.update(acc1[0], features.size(0))
-
+            # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
-    print(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))
-    return losses.avg, top1.avg
+            if i % args.print_freq == 0:
+                progress.print(i)
+        
+        # TODO: this should also be done with the ProgressMeter
+        print(' * Acc@1 {top1.avg:.3f} Acc@2 {top2.avg:.3f} Sample per Second {time:.3f}'
+              .format(top1=top1, top2=top2, time=len(val_loader)*args.batch_size/processing_time))
 
-def evaluate(test_loader, model, args):
-    model.eval()
-    preds = []
-    labels = []
-
-    with torch.no_grad():
-        for i, (features, label) in enumerate(test_loader):
-            if args.gpu is not None:
-                features = features.cuda(args.gpu, non_blocking=True)
-
-            output = model(features)
-            preds.append(output.cpu().numpy())
-            labels.append(label.numpy())
-
-    preds = np.concatenate(preds, axis=0)
-    labels = np.concatenate(labels, axis=0)
-
-    results = kat_inference(
-        preds, labels, threshold=args.inference_threshold)
-    print("Test Results: ", results)
-    return results
+    y_preds = torch.cat(y_preds)
+    y_labels = torch.cat(y_labels)
+    confuse_mat, auc = calc_classification_metrics(y_preds, y_labels, args.num_classes, prefix=prefix)
+    print("Confusion matrix -->", confuse_mat)
+    return top1.avg, confuse_mat, auc, {'pred':y_preds, 'label':y_labels}
+    
 
 if __name__ == "__main__":
     args = arg_parse()
