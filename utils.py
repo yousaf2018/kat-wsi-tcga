@@ -11,7 +11,7 @@ from sklearn.metrics import roc_auc_score, f1_score, confusion_matrix
 from tabulate import tabulate
 import numpy as np
 import torch
-
+import pandas as pd
 # The definition of magnification of our gastic dataset.
 # 'Large':40X, 'Medium':20X, 'Small':10X, 'Overview':5X
 scales = ['Large', 'Medium', 'Small', 'Overview']
