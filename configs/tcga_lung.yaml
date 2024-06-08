@@ -1,7 +1,7 @@
 DATA:
   LOCAL_SLIDE_DIR: '/kaggle/input/patched-dataset-wsi-for-kat'
-  DATASET_CONFIG_DIR: './dataset/tcga_lung'
-  DATA_SAVE_DIR: './data/tcga_lung'
+  DATASET_CONFIG_DIR: '/kaggle/working/dataset/tcga_lung'
+  DATA_SAVE_DIR: '/kaggle/working/tcga_lung'
   LABEL_ID: 2 # 1 for subtype task, 2 for binary task
   TEST_RATIO: 0.3
   FOLD_NUM: 5

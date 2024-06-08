@@ -87,6 +87,16 @@ def arg_parse():
 
     return parser.parse_args()
 
+def save_model(model, optimizer, epoch, args, filename='checkpoint.pth.tar'):
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
+    save_path = os.path.join(args.save_dir, filename)
+    torch.save({
+        'epoch': epoch + 1,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+    }, save_path)
+    print(f'Model saved to {save_path}')
 
 def main(args):
     if args.cfg:
@@ -326,8 +336,11 @@ def main_worker(gpu, ngpus_per_node, args):
         train_acc = train(train_loader, model, criterion, optimizer, epoch, args)
         print('epoch time: ', time.time()-begin_time)
         scheduler.step()
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                                                    and args.rank == 0):
+
+        if not args.multiprocessing_distributed or (args.multiprocessing_distributed and args.rank == 0):
+            # Save the model every epoch or as needed
+            save_model(model, optimizer, epoch, args)
+
             if epoch % args.eval_freq == 0:
                 if valid_loader is not None:
                     val_acc, val_cm, val_auc, val_data = evaluate(valid_loader, model, criterion, args, 'Valid')
@@ -339,9 +352,9 @@ def main_worker(gpu, ngpus_per_node, args):
                     with open(graph_model_path + '.csv', 'a') as f:
                         f.write('{},{:.3f},V,{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},T,{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}, SUB,'.format(
                             epoch, train_acc/100.0, 
-                                val_acc/100.0, val_auc['micro'], val_auc['macro'], val_auc['w_f1'], val_auc['m_f1'],
-                                test_acc/100.0, test_auc['micro'], test_auc['macro'], test_auc['w_f1'], test_auc['m_f1'],)
-                                )
+                            val_acc/100.0, val_auc['micro'], val_auc['macro'], val_auc['w_f1'], val_auc['m_f1'],
+                            test_acc/100.0, test_auc['micro'], test_auc['macro'], test_auc['w_f1'], test_auc['m_f1'],)
+                        )
                         for cn in range(test_cm.shape[0]):
                             f.write(',{:.2f}'.format(test_cm[cn, cn]))
                         f.write('\n') 
@@ -351,17 +364,17 @@ def main_worker(gpu, ngpus_per_node, args):
                     pickle.dump({'val':val_data, 'test':test_data}, f)
 
                 torch.save({
-                        'epoch': epoch + 1,
-                        'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
-                        'optimizer' : optimizer.state_dict(),
-                    }, os.path.join(graph_model_path, 'checkpoint.pth.tar'))
+                    'epoch': epoch + 1,
+                    'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                }, os.path.join(graph_model_path, 'checkpoint.pth.tar'))
 
                 torch.save({
-                        'epoch': epoch + 1,
-                        'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
-                        'optimizer' : optimizer.state_dict(),
-                        'args': args
-                    }, os.path.join(graph_model_path, 'model_{}.pth.tar'.format(epoch + 1)))
+                    'epoch': epoch + 1,
+                    'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'args': args
+                }, os.path.join(graph_model_path, 'model_{}.pth.tar'.format(epoch + 1)))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
