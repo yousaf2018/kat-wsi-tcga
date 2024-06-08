@@ -58,9 +58,23 @@ def main(args):
     # graph_model_path = get_kat_path(args, args.prefix_name)
 
     checkpoint = torch.load(args.model_path, map_location=torch.device('cpu'))
+    train_set = KernelWSILoader(
+        os.path.join(graph_model_path, 'train'),
+        max_node_number=args.max_nodes,
+        patch_per_kernel=args.npk,
+        task_id=args.label_id,
+        max_kernel_num=args.kn,
+        node_aug=args.node_aug,
+        two_augments=False
+    )
+
+    train_loader = torch.utils.data.DataLoader(
+        train_set, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers, drop_last=False, sampler=None
+    )
     args.start_epoch = checkpoint['epoch']
     args.input_dim = train_set.get_feat_dim()
-    args.input_dim = checkpoint['input_dim']
+    # args.input_dim = checkpoint['input_dim']
     
     model = KAT(
         num_pk=args.npk,
@@ -81,20 +95,7 @@ def main(args):
     if args.gpu is not None:
         model = model.cuda(args.gpu)
 
-    train_set = KernelWSILoader(
-        os.path.join(graph_model_path, 'train'),
-        max_node_number=args.max_nodes,
-        patch_per_kernel=args.npk,
-        task_id=args.label_id,
-        max_kernel_num=args.kn,
-        node_aug=args.node_aug,
-        two_augments=False
-    )
 
-    train_loader = torch.utils.data.DataLoader(
-        train_set, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.num_workers, drop_last=False, sampler=None
-    )
 
     criterion = nn.CrossEntropyLoss().cuda(args.gpu) if args.gpu is not None else nn.CrossEntropyLoss()
 
