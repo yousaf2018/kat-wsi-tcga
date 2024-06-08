@@ -152,3 +152,8 @@ def evaluate(val_loader, model, criterion, args, prefix='Test'):
     confuse_mat, auc = calc_classification_metrics(y_preds, y_labels, args.num_classes, prefix=prefix)
     print("Confusion matrix -->", confuse_mat)
     return top1.avg, confuse_mat, auc
+
+
+if __name__ == "__main__":
+    args = arg_parse()
+    main(args)
