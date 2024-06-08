@@ -84,7 +84,8 @@ def arg_parse():
     
     parser.add_argument('--node-aug', default=False, action='store_true',
                         help='Randomly reduce the nodes for data augmentation》')
-
+    parser.add_argument('--save-dir', type=str, default='/kaggle/working/models',
+                        help='Directory to save models')
     return parser.parse_args()
 
 def save_model(model, optimizer, epoch, args, filename='checkpoint.pth.tar'):
