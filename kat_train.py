@@ -316,9 +316,9 @@ def main_worker(gpu, ngpus_per_node, args):
         model_params = torch.load(args.eval_model, map_location='cpu')
         model.load_state_dict(model_params['state_dict'])
 
-        test_acc, test_cm, test_auc, test_data = evaluate(test_loader, model, criterion, args, 'Valid')
+        test_acc, test_cm, test_auc, test_data = evaluate(test_loader, model, criterion, args, 'Test')
 
-        with open(os.path.join(graph_model_path,  'eval.pkl'), 'wb') as f:
+        with open(os.path.join(graph_model_path, 'eval.pkl'), 'wb') as f:
             pickle.dump({'acc':test_acc, 'cm':test_cm, 'auc':test_auc,'data':test_data}, f)
 
         return 0
