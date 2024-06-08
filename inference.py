@@ -64,7 +64,7 @@ def main(args):
         patch_per_kernel=args.npk,
         task_id=args.label_id,
         max_kernel_num=args.kn,
-        node_aug=args.node_aug,
+        node_aug=0.6,
         two_augments=False
     )
 
