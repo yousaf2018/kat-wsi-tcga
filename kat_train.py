@@ -320,7 +320,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         with open(os.path.join(graph_model_path, 'eval.pkl'), 'wb') as f:
             pickle.dump({'acc':test_acc, 'cm':test_cm, 'auc':test_auc,'data':test_data}, f)
-
+        print("Saved model is successfully tested")
         return 0
 
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
