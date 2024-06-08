@@ -368,7 +368,9 @@ def main_worker(gpu, ngpus_per_node, args):
                     'epoch': epoch + 1,
                     'state_dict': model.module.state_dict() if args.distributed else model.state_dict(),
                     'optimizer': optimizer.state_dict(),
+                    'args': args
                 }, os.path.join(graph_model_path, 'checkpoint.pth.tar'))
+
 
                 torch.save({
                     'epoch': epoch + 1,
