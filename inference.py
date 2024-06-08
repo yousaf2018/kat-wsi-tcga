@@ -59,6 +59,7 @@ def main(args):
 
     checkpoint = torch.load(args.model_path, map_location=torch.device('cpu'))
     args.start_epoch = checkpoint['epoch']
+    args.input_dim = train_set.get_feat_dim()
     args.input_dim = checkpoint['input_dim']
     
     model = KAT(
