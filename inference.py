@@ -55,7 +55,7 @@ def main(args):
         merge_config_to_args(args, cfg)
 
     args.num_classes = args.task_list[args.label_id]['num_classes']
-    graph_model_path = get_kat_path(args, args.prefix_name)
+    # graph_model_path = get_kat_path(args, args.prefix_name)
 
     checkpoint = torch.load(args.model_path, map_location=torch.device('cpu'))
     args.start_epoch = checkpoint['epoch']
