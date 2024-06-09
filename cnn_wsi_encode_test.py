@@ -214,7 +214,7 @@ def main_worker(gpu, ngpus_per_node, args):
             
     with open(args.slide_list, 'rb') as f:
         slide_data = pickle.load(f)
-    slide_list = slide_data['train'] + slide_data['test']
+    slide_list = slide_data['test']
     
     current_slide_list = []
     for s_id, s_info in enumerate(slide_list):
@@ -381,6 +381,7 @@ def make_list(args):
 
         if len(test_set):
             with open(os.path.join(sub_list_path,'test'), 'wb') as f:
+                print("Updating test dataset")
                 pickle.dump({
                     'base_dir':args.wsi_feat_dir, 
                     'list':test_set, 
