@@ -142,20 +142,20 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.cl:
         model = replace_fc_with_mlp(model, args.hidden_dim, args.pred_dim)
         
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(
-                args.resume, map_location=torch.device('cpu'))
-            model.load_state_dict(checkpoint['state_dict'])
+    # if args.resume:
+    #     if os.path.isfile(args.resume):
+    #         print("=> loading checkpoint '{}'".format(args.resume))
+    #         checkpoint = torch.load(
+    #             args.resume, map_location=torch.device('cpu'))
+    #         model.load_state_dict(checkpoint['state_dict'])
+    # else:
+    if args.cl:
+        checkpoint = torch.load(os.path.join(get_contrastive_path(
+            args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
     else:
-        if args.cl:
-            checkpoint = torch.load(os.path.join(get_contrastive_path(
-                args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
-        else:
-            checkpoint = torch.load(os.path.join(get_cnn_path(
-                args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
-        model.load_state_dict(checkpoint['state_dict'])
+        checkpoint = torch.load(os.path.join(get_cnn_path(
+            args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
+    model.load_state_dict(checkpoint['state_dict'])
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
