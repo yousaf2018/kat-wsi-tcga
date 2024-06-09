@@ -215,7 +215,7 @@ def main_worker(gpu, ngpus_per_node, args):
     with open(args.slide_list, 'rb') as f:
         slide_data = pickle.load(f)
     slide_list = slide_data['test']
-    
+    print("Slider list -->", slide_list)
     current_slide_list = []
     for s_id, s_info in enumerate(slide_list):
         graph_save_path = os.path.join(args.wsi_feat_dir, '{}.pkl'.format(s_info[0]))
