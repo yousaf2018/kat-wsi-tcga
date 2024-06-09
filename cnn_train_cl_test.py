@@ -168,13 +168,13 @@ def main_worker(gpu, ngpus_per_node, args):
                     checkpoint_path, map_location=torch.device('cpu'))
                 print("=> loading checkpoint")
 
-    # if checkpoint:
-    #     args.start_epoch = checkpoint['epoch']
-    #     if args.start_epoch >= args.epochs:
-    #         print('CNN training is finished')
-    #         return 0
-    #     else:
-    #         print('CNN train from epoch {}/{}'.format(args.start_epoch, args.epochs))
+    if checkpoint:
+        args.start_epoch = checkpoint['epoch']
+        if args.start_epoch >= args.epochs:
+            print('CNN training is finished')
+            return 0
+        else:
+            print('CNN train from epoch {}/{}'.format(args.start_epoch, args.epochs))
 
     global best_acc1
     args.gpu = gpu
@@ -260,11 +260,11 @@ def main_worker(gpu, ngpus_per_node, args):
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
-    # optionally resume from a checkpoint
-    if checkpoint:
-        learner.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        print("=> load state from checkpoint.")
+    # # optionally resume from a checkpoint
+    # if checkpoint:
+    #     learner.load_state_dict(checkpoint['state_dict'])
+    #     optimizer.load_state_dict(checkpoint['optimizer'])
+    #     print("=> load state from checkpoint.")
     
     cudnn.benchmark = True
 
