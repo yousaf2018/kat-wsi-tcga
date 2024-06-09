@@ -69,9 +69,9 @@ def sampling_slide(slide_info):
     args = slide_info[1]
 
     time_file_path = os.path.join(args.dataset_path, slide_guid, 'info.txt')
-    if os.path.exists(time_file_path):
-        print(slide_guid, 'is already sampled. skip.')
-        return 0
+    # if os.path.exists(time_file_path):
+    #     print(slide_guid, 'is already sampled. skip.')
+    #     return 0
 
     slide_path = os.path.join(args.slide_dir, slide_rpath)
     image_dir = os.path.join(slide_path, scales[args.level])
