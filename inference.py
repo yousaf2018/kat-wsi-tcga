@@ -40,7 +40,11 @@ def arg_parse():
                         help='Number of workers to load data.')
     parser.add_argument('--gpu', default=None, type=int,
                         help='GPU id to use.')
-    
+    parser.add_argument('--seed', default=None, type=int,
+                        help='Seed for initializing training.')
+    parser.add_argument('--print-freq', type=int, default=10,
+                        help='The mini-batch frequency to print results.')
+
     return parser.parse_args()
 
 def main(args):
@@ -75,6 +79,7 @@ def main(args):
     model_args.gpu = args.gpu
     model_args.batch_size = args.batch_size
     model_args.num_workers = args.num_workers
+    model_args.print_freq = args.print_freq
 
     model = KAT(
         num_pk=model_args.npk,
