@@ -34,15 +34,15 @@ def arg_parse():
                         help='The path of yaml config file')
 
     parser.add_argument('--fold', type=int, default=-1, help='use all data for training if it is set -1')
-    parser.add_argument('--batch-size', type=int, default=64,
+    parser.add_argument('--batch-size', type=int, default=1,
                         help='Batch size.')
-    parser.add_argument('--num-workers', type=int, default=8,
+    parser.add_argument('--num-workers', type=int, default=4,
                         help='Number of workers to load data.')
     parser.add_argument('--gpu', default=None, type=int,
                         help='GPU id to use.')
     parser.add_argument('--seed', default=None, type=int,
                         help='Seed for initializing training.')
-    parser.add_argument('--print-freq', type=int, default=10,
+    parser.add_argument('--print-freq', type=int, default=1,
                         help='The mini-batch frequency to print results.')
 
     return parser.parse_args()
