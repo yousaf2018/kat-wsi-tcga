@@ -91,6 +91,7 @@ def main(args):
     # Load the test data
     graph_list_dir = os.path.join(get_graph_list_path(model_args), model_args.fold_name)
     test_path = os.path.join(graph_list_dir, 'test')
+    print("Test path -->", test_path)
     test_set = KernelWSILoader(test_path,
         max_node_number=model_args.max_nodes,
         patch_per_kernel=model_args.npk,
