@@ -38,7 +38,7 @@ def arg_parse():
                         help='GPU id to use.')
     parser.add_argument('--seed', default=None, type=int,
                         help='Seed for initializing training.')
-    parser.add_argument('--print-freq', type=int, default=10,
+    parser.add_argument('--print-freq', type=int, default=1,
                         help='The mini-batch frequency to print results.')
 
     return parser.parse_args()
