@@ -94,7 +94,7 @@ def main(args):
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
 
-    make_list(args)
+        make_list(args)
 
 def main_worker(gpu, ngpus_per_node, args):
     args.num_classes = args.task_list[args.label_id]['num_classes']
@@ -225,10 +225,10 @@ def main_worker(gpu, ngpus_per_node, args):
     for s_id, s_info in enumerate(current_slide_list):
         porc_start = time.time()
         s_guid, s_rpath, s_label = s_info
-        if args.distributed:
-            # skip the slides the other gpus are working on
-            if not s_id % args.world_size == args.rank:
-                continue
+        # if args.distributed:
+        #     # skip the slides the other gpus are working on
+        #     if not s_id % args.world_size == args.rank:
+        #         continue
         
         graph_save_path = os.path.join(args.wsi_feat_dir, '{}.pkl'.format(s_guid))
         # if os.path.exists(graph_save_path):
@@ -244,8 +244,8 @@ def main_worker(gpu, ngpus_per_node, args):
         content_mat = content_mat[::args.frstep, ::args.frstep] > args.intensity_thred
         
         patches_in_graph = np.sum(content_mat)
-        if patches_in_graph < 1:
-            continue
+        # if patches_in_graph < 1:
+        #     continue
 
         # grid sampling
         sampling_mat = np.copy(content_mat)
