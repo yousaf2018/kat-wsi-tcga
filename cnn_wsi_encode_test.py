@@ -94,7 +94,7 @@ def main(args):
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
 
-        make_list(args)
+    make_list(args)
 
 def main_worker(gpu, ngpus_per_node, args):
     args.num_classes = args.task_list[args.label_id]['num_classes']
@@ -142,20 +142,20 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.cl:
         model = replace_fc_with_mlp(model, args.hidden_dim, args.pred_dim)
         
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print("=> loading checkpoint '{}'".format(args.resume))
-    #         checkpoint = torch.load(
-    #             args.resume, map_location=torch.device('cpu'))
-    #         model.load_state_dict(checkpoint['state_dict'])
-    # else:
-    if args.cl:
-        checkpoint = torch.load(os.path.join(get_contrastive_path(
-            args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            checkpoint = torch.load(
+                args.resume, map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint['state_dict'])
     else:
-        checkpoint = torch.load(os.path.join(get_cnn_path(
-            args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
-    model.load_state_dict(checkpoint['state_dict'])
+        if args.cl:
+            checkpoint = torch.load(os.path.join(get_contrastive_path(
+                args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(os.path.join(get_cnn_path(
+                args), 'model_best.pth.tar'), map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint['state_dict'])
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
@@ -175,6 +175,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model.cuda()
             # DistributedDataParallel will divide and allocate batch_size to all
             # available GPUs if device_ids are not set
+           
             model = torch.nn.parallel.DistributedDataParallel(model)
 
     elif args.gpu is not None:
@@ -214,8 +215,8 @@ def main_worker(gpu, ngpus_per_node, args):
             
     with open(args.slide_list, 'rb') as f:
         slide_data = pickle.load(f)
-    slide_list = slide_data['test']
-    print("Slide list -->", slide_list)
+    slide_list = slide_data['train'] + slide_data['test']
+    
     current_slide_list = []
     for s_id, s_info in enumerate(slide_list):
         graph_save_path = os.path.join(args.wsi_feat_dir, '{}.pkl'.format(s_info[0]))
@@ -225,14 +226,14 @@ def main_worker(gpu, ngpus_per_node, args):
     for s_id, s_info in enumerate(current_slide_list):
         porc_start = time.time()
         s_guid, s_rpath, s_label = s_info
-        # if args.distributed:
-        #     # skip the slides the other gpus are working on
-        #     if not s_id % args.world_size == args.rank:
-        #         continue
+        if args.distributed:
+            # skip the slides the other gpus are working on
+            if not s_id % args.world_size == args.rank:
+                continue
         
         graph_save_path = os.path.join(args.wsi_feat_dir, '{}.pkl'.format(s_guid))
-        # if os.path.exists(graph_save_path):
-        #     continue
+        if os.path.exists(graph_save_path):
+            continue
 
         slide_path = os.path.join(args.slide_dir, s_rpath)
         image_dir = os.path.join(slide_path, scales[args.level])
@@ -244,8 +245,8 @@ def main_worker(gpu, ngpus_per_node, args):
         content_mat = content_mat[::args.frstep, ::args.frstep] > args.intensity_thred
         
         patches_in_graph = np.sum(content_mat)
-        # if patches_in_graph < 1:
-        #     continue
+        if patches_in_graph < 1:
+            continue
 
         # grid sampling
         sampling_mat = np.copy(content_mat)
@@ -366,22 +367,21 @@ def make_list(args):
         if not os.path.exists(sub_list_path):
             os.makedirs(sub_list_path)
 
-        # with open(os.path.join(sub_list_path,'train'), 'wb') as f:
-        #     pickle.dump({
-        #         'base_dir':args.wsi_feat_dir, 
-        #         'list':train_set, 
-        #         }, f)
+        with open(os.path.join(sub_list_path,'train'), 'wb') as f:
+            pickle.dump({
+                'base_dir':args.wsi_feat_dir, 
+                'list':train_set, 
+                }, f)
 
-        # if len(val_set):
-        #     with open(os.path.join(sub_list_path,'val'), 'wb') as f:
-        #         pickle.dump({
-        #             'base_dir':args.wsi_feat_dir, 
-        #             'list':val_set, 
-        #             }, f)
+        if len(val_set):
+            with open(os.path.join(sub_list_path,'val'), 'wb') as f:
+                pickle.dump({
+                    'base_dir':args.wsi_feat_dir, 
+                    'list':val_set, 
+                    }, f)
 
         if len(test_set):
             with open(os.path.join(sub_list_path,'test'), 'wb') as f:
-                print("Updating test dataset", sub_list_path)
                 pickle.dump({
                     'base_dir':args.wsi_feat_dir, 
                     'list':test_set, 
@@ -390,3 +390,4 @@ def make_list(args):
 if __name__ == '__main__':
     args = parser.parse_args()
     main(args)
+
