@@ -223,7 +223,8 @@ def main_worker(gpu, ngpus_per_node, args):
         if not os.path.exists(graph_save_path):
             current_slide_list.append(s_info)
 
-    for s_id, s_info in enumerate(current_slide_list):
+    for s_id, s_info in enumerate(slide_list):
+        print(s_id, s_info)
         porc_start = time.time()
         s_guid, s_rpath, s_label = s_info
         if args.distributed:
