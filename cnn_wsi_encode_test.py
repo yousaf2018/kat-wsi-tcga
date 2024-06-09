@@ -381,7 +381,7 @@ def make_list(args):
 
         if len(test_set):
             with open(os.path.join(sub_list_path,'test'), 'wb') as f:
-                print("Updating test dataset")
+                print("Updating test dataset", sub_list_path)
                 pickle.dump({
                     'base_dir':args.wsi_feat_dir, 
                     'list':test_set, 
