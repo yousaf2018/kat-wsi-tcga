@@ -76,7 +76,7 @@ def arg_parse():
     parser.add_argument('--eval-model', type=str, default='',
                         help='provide a path of a trained model to evaluate the performance')
     parser.add_argument('--eval-freq', type=int, default=30,
-                        help='The epoch frequency to evaluate on vlidation and test sets.')
+                        help='The epoch frequency to evaluate on validation and test sets.')
     parser.add_argument('--print-freq', type=int, default=10,
                         help='The mini-batch frequency to print results.')
     parser.add_argument('--prefix-name', type=str, default='',
@@ -86,6 +86,11 @@ def arg_parse():
                         help='Randomly reduce the nodes for data augmentation》')
     parser.add_argument('--save-dir', type=str, default='/kaggle/working/models',
                         help='Directory to save models')
+    
+    # Add early stopping parameters
+    parser.add_argument('--patience', type=int, default=10,
+                        help='Early stopping patience.')
+    
     return parser.parse_args()
 
 def save_model(model, optimizer, epoch, args, filename='checkpoint.pth.tar'):
@@ -331,6 +336,10 @@ def main_worker(gpu, ngpus_per_node, args):
             f.write('epoch, train acc, V, val acc, val w-auc, val m-auc, val w-f1, val m-f1 ,\
                 T, tet acc, test w-auc, test m-auc, test w-f1, test m-f1, \n')
 
+    # Early stopping parameters
+    best_val_loss = float('inf')
+    patience_counter = 0
+
     for epoch in range(args.start_epoch, args.num_epochs):
         begin_time = time.time()
 
@@ -345,6 +354,18 @@ def main_worker(gpu, ngpus_per_node, args):
             if epoch % args.eval_freq == 0:
                 if valid_loader is not None:
                     val_acc, val_cm, val_auc, val_data = evaluate(valid_loader, model, criterion, args, 'Valid')
+
+                    # Early stopping check
+                    val_loss = val_auc['micro']  # Adjust based on how you calculate loss in evaluate
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+                        patience_counter = 0
+                        save_model(model, optimizer, epoch, args, 'best_model.pth.tar')
+                    else:
+                        patience_counter += 1
+                        if patience_counter >= args.patience:
+                            print(f"Early stopping at epoch {epoch}")
+                            return 0
 
                 if test_loader is not None:
                     test_acc, test_cm, test_auc, test_data = evaluate(test_loader, model, criterion, args, 'Test')
