@@ -2,20 +2,18 @@
 # -*- coding:utf-8 -*-
 # date: 2020/12
 # author:Yushan Zheng
-# emai:yszheng@buaa.edu.cn
+# email: yszheng@buaa.edu.cn
 
 import argparse
 import os
 import pickle
-import time
 import numpy as np
-from yacs.config import CfgNode
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data.distributed
 import torch.backends.cudnn as cudnn
+from yacs.config import CfgNode
 
 from model import KAT, kat_inference
 from loader import KernelWSILoader
@@ -29,11 +27,8 @@ def arg_parse():
 
     parser.add_argument('--model-path', type=str, required=True,
                         help='Path to the saved KAT model checkpoint.')
-    parser.add_argument('--cfg', type=str,
-                        default='',
-                        help='The path of yaml config file')
-
-    parser.add_argument('--fold', type=int, default=-1, help='use all data for training if it is set -1')
+    parser.add_argument('--cfg', type=str, required=True,
+                        help='The path of yaml config file.')
     parser.add_argument('--batch-size', type=int, default=1,
                         help='Batch size.')
     parser.add_argument('--num-workers', type=int, default=4,
@@ -42,7 +37,7 @@ def arg_parse():
                         help='GPU id to use.')
     parser.add_argument('--seed', default=None, type=int,
                         help='Seed for initializing training.')
-    parser.add_argument('--print-freq', type=int, default=1,
+    parser.add_argument('--print-freq', type=int, default=10,
                         help='The mini-batch frequency to print results.')
 
     return parser.parse_args()
@@ -66,21 +61,14 @@ def main(args):
     if args.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
-
-    if args.gpu is not None:
         print("Use GPU: {} for inference".format(args.gpu))
         torch.cuda.set_device(args.gpu)
 
-    # Load the model
+    # Load the model checkpoint
     checkpoint = torch.load(args.model_path, map_location='cuda' if args.gpu is not None else 'cpu')
     model_args = checkpoint['args']
 
-    # Update model_args with current args if needed
-    model_args.gpu = args.gpu
-    model_args.batch_size = args.batch_size
-    model_args.num_workers = args.num_workers
-    model_args.print_freq = args.print_freq
-
+    # Initialize the model
     model = KAT(
         num_pk=model_args.npk,
         patch_dim=model_args.input_dim,
@@ -93,7 +81,6 @@ def main(args):
         num_kernal=model_args.kn,
         pool=model_args.trfm_pool
     )
-
     model.load_state_dict(checkpoint['state_dict'])
     model.eval()
 
@@ -113,8 +100,8 @@ def main(args):
     )
 
     test_loader = torch.utils.data.DataLoader(
-        test_set, batch_size=model_args.batch_size, shuffle=False,
-        num_workers=model_args.num_workers, drop_last=False, sampler=None
+        test_set, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers, drop_last=False, sampler=None
     )
 
     criterion = nn.CrossEntropyLoss().cuda(args.gpu) if args.gpu is not None else nn.CrossEntropyLoss()
@@ -169,7 +156,6 @@ def evaluate(val_loader, model, criterion, args, prefix='Test'):
             if i % args.print_freq == 0:
                 progress.print(i)
         
-        # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@2 {top2.avg:.3f} Sample per Second {time:.3f}'
               .format(top1=top1, top2=top2, time=len(val_loader)*args.batch_size/processing_time))
 
