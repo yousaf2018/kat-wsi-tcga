@@ -167,7 +167,7 @@ class ConvNeXt(nn.Module):
         self.stages = nn.ModuleList()
         for i in range(4):
             stage = nn.Sequential(
-                *[ConvNeXtBlock(dims[i]) for _ in range(depths[i])]
+                *[ConvNeXtBlock(dims[i], dims[i + 1]) for _ in range(depths[i])]  # Provide both in_channels and dim
             )
             self.stages.append(stage)
         
