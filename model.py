@@ -174,7 +174,7 @@ class KAT(nn.Module):
         x = self.dropout(x)
 
         # Apply ConvNeXt model
-        x = x.permute(0, 3, 1, 2)  # Adjust input shape for ConvNeXt
+        x = x.permute(0, 3, 1, 2)  # If x has shape (batch_size, height, width, channels)
         x = self.convnext(x)
         x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
 
