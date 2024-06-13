@@ -7,7 +7,6 @@
 import torch
 from torch import nn, einsum
 from einops import rearrange, repeat
-import torch.nn.functional as F
 import copy
 
 class PreNorm(nn.Module):
@@ -125,102 +124,43 @@ class KATBlocks(nn.Module):
             k_reps.append(kx.masked_fill(kernel_mask, 0))
 
         return k_reps, clst
-
-
-class ConvNeXtBlock(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim) # depthwise conv
-        self.norm = nn.LayerNorm(dim)
-        self.pwconv1 = nn.Linear(dim, 4 * dim)
-        self.act = nn.GELU()
-        self.pwconv2 = nn.Linear(4 * dim, dim)
-
-    def forward(self, x):
-        shortcut = x
-        x = self.dwconv(x)
-        x = rearrange(x, 'b c h w -> b h w c')
-        x = self.norm(x)
-        x = self.pwconv1(x)
-        x = self.act(x)
-        x = self.pwconv2(x)
-        x = rearrange(x, 'b h w c -> b c h w')
-        return x + shortcut
-
-class ConvNeXt(nn.Module):
-    def __init__(self, in_channels, out_channels, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768]):
-        super().__init__()
-        self.downsample_layers = nn.ModuleList()
-        stem = nn.Sequential(
-            nn.Conv2d(in_channels, dims[0], kernel_size=4, stride=4),
-            nn.LayerNorm(dims[0], eps=1e-6)
-        )
-        self.downsample_layers.append(stem)
-        for i in range(3):
-            downsample_layer = nn.Sequential(
-                nn.LayerNorm(dims[i], eps=1e-6),
-                nn.Conv2d(dims[i], dims[i + 1], kernel_size=2, stride=2)
-            )
-            self.downsample_layers.append(downsample_layer)
-
-        self.stages = nn.ModuleList()
-        for i in range(4):
-            stage = nn.Sequential(
-                *[ConvNeXtBlock(dims[i]) for _ in range(depths[i])]
-            )
-            self.stages.append(stage)
         
-        self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.fc = nn.Linear(dims[-1], out_channels)
 
-    def forward(self, x):
-        for downsample, stage in zip(self.downsample_layers, self.stages):
-            x = downsample(x)
-            x = stage(x)
-        x = rearrange(x, 'b c h w -> b (h w) c')
-        x = self.norm(x)
-        x = x.mean(dim=1)
-        x = self.fc(x)
-        return x
-
-
-class KATWithConvNeXt(nn.Module):
-    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls', dim_head=64, dropout=0.5, emb_dropout=0., in_channels=3):
+class KAT(nn.Module):
+    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool = 'cls', dim_head = 64, dropout = 0.5, emb_dropout = 0.):
         super().__init__()
 
-        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean pooling'
+        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
-        self.convnext = ConvNeXt(in_channels, dim)
-        self.to_patch_embedding = nn.Linear(dim, patch_dim)
+        self.to_patch_embedding = nn.Linear(patch_dim, dim)
 
-        self.cls_token = nn.Parameter(torch.randn(1, 1, patch_dim))
-        self.kernel_token = nn.Parameter(torch.randn(1, 1, patch_dim))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        self.kernel_token = nn.Parameter(torch.randn(1, 1, dim))
         self.nk = num_kernal
 
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.kt = KATBlocks(num_pk, patch_dim, depth, heads, dim_head, mlp_dim, dropout)
+        self.kt = KATBlocks(num_pk, dim, depth, heads, dim_head, mlp_dim, dropout)
         self.pool = pool
 
         self.mlp_head = nn.Sequential(
-            nn.LayerNorm(patch_dim),
-            nn.Linear(patch_dim, num_classes)
+            nn.LayerNorm(dim),
+            nn.Linear(dim, num_classes) 
         )
 
     def forward(self, node_features, krd, mask=None, kmask=None):
-        x = self.convnext(node_features)
-        x = self.to_patch_embedding(x)
+        x = self.to_patch_embedding(node_features)
         b = x.shape[0]
 
-        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
-        kernel_tokens = repeat(self.kernel_token, '() () d -> b k d', b=b, k=self.nk)
+        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
+        kernel_tokens = repeat(self.kernel_token, '() () d -> b k d', b = b, k = self.nk)
 
         x = self.dropout(x)
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
         return k_reps, self.mlp_head(clst[:, 0])
 
-
+    
 def kat_inference(kat_model, data):
     feats = data[0].float().cuda(non_blocking=True)
     rd = data[1].float().cuda(non_blocking=True)
@@ -228,26 +168,26 @@ def kat_inference(kat_model, data):
     kmasks = data[3].int().cuda(non_blocking=True)
 
     return kat_model(feats, rd, masks, kmasks)
+    
 
-
-class KATCLWithConvNeXt(nn.Module):
+class KATCL(nn.Module):
     """
     Build a BYOL model for the kernels.
     """
-    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls', dim_head=64, dropout=0.5, emb_dropout=0.,
-        byol_hidden_dim=512, byol_pred_dim=256, momentum=0.99, in_channels=3):
+    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool = 'cls', dim_head = 64, dropout = 0.5, emb_dropout = 0.,
+        byol_hidden_dim=512, byol_pred_dim=256, momentum=0.99):
 
-        super(KATCLWithConvNeXt, self).__init__()
+        super(KATCL, self).__init__()
 
         self.momentum = momentum
         # create the online encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.online_kat = KATWithConvNeXt(num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal, pool, dim_head, dropout, emb_dropout, in_channels)
+        self.online_kat = KAT(num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal, pool, dim_head, dropout, emb_dropout)
         self.online_projector = nn.Sequential(nn.Linear(dim, byol_hidden_dim, bias=False),
-                                              nn.LayerNorm(byol_hidden_dim),
-                                              nn.GELU(), 
-                                              nn.Dropout(dropout),
-                                              nn.Linear(byol_hidden_dim, byol_pred_dim))  # output layer
+                                       nn.LayerNorm(byol_hidden_dim),
+                                       nn.GELU(), 
+                                       nn.Dropout(dropout),
+                                       nn.Linear(byol_hidden_dim, byol_pred_dim))  # output layer
 
         # create the target encoder
         self.target_kat = copy.deepcopy(self.online_kat)
@@ -277,13 +217,13 @@ class KATCLWithConvNeXt(nn.Module):
 
     def forward(self, x1, x2):
         # compute features for one view
-        online_k1, o1 = kat_inference(self.online_kat, x1)
-        online_z1 = self.online_projector(torch.cat(online_k1, dim=1))
-        p1 = self.predictor(online_z1)
+        online_k1, o1 = kat_inference(self.online_kat, x1)  
+        online_z1 = self.online_projector(torch.cat(online_k1, dim=1)) 
+        p1 = self.predictor(online_z1) 
 
         with torch.no_grad():
             self._update_moving_average()
-            target_k2, _ = kat_inference(self.target_kat, x2)
-            target_z2 = self.target_projector(torch.cat(target_k2, dim=1))
+            target_k2, _ = kat_inference(self.target_kat, x2)  
+            target_z2 = self.target_projector(torch.cat(target_k2, dim=1)) 
             
         return p1, o1, target_z2
