@@ -146,11 +146,9 @@ class KAT(nn.Module):
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.to_patch_embedding = nn.Linear(patch_dim, dim)
-
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.kernel_token = nn.Parameter(torch.randn(1, 1, dim))
         self.nk = num_kernal
-
         self.dropout = nn.Dropout(emb_dropout)
 
         # Integrate ConvNeXt model
@@ -173,21 +171,21 @@ class KAT(nn.Module):
 
         x = self.dropout(x)
 
-        # Check tensor type
-        print(x.type())  # Should print something like torch.cuda.sparse.FloatTensor
-
-        # Convert to dense tensor if sparse
+        # Convert sparse tensor to dense if necessary
         if 'sparse' in x.type():
             x = x.to_dense()
 
-        # Apply permutation assuming x is dense
+        # Check the tensor type and shape
+        print(f"Tensor type: {x.type()}, Shape: {x.shape}")
+
+        # Perform tensor permutation (assuming x is dense)
         x = x.permute(0, 3, 1, 2)  # Adjust based on actual shape of x
         x = self.convnext(x)
         x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
 
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
-        return k_reps, self.mlp_head(clst[:,        0])
+        return k_reps, self.mlp_head(clst[:, 0])
 
     
 def kat_inference(kat_model, data):
