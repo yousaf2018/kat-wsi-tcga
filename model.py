@@ -151,13 +151,18 @@ class ConvNeXtBlock(nn.Module):
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels, out_channels, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768]):
         super().__init__()
+        
+        if len(depths) != len(dims) - 1:
+            raise ValueError("Length of depths list should be one less than dims list for stage transitions.")
+        
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
             nn.Conv2d(in_channels, dims[0], kernel_size=4, stride=4),
             nn.LayerNorm(dims[0], eps=1e-6)
         )
         self.downsample_layers.append(stem)
-        for i in range(3):
+        
+        for i in range(len(depths)):
             downsample_layer = nn.Sequential(
                 nn.LayerNorm(dims[i], eps=1e-6),
                 nn.Conv2d(dims[i], dims[i + 1], kernel_size=2, stride=2)
@@ -165,9 +170,9 @@ class ConvNeXt(nn.Module):
             self.downsample_layers.append(downsample_layer)
 
         self.stages = nn.ModuleList()
-        for i in range(4):
+        for i in range(len(depths)):
             stage = nn.Sequential(
-                *[ConvNeXtBlock(dims[i], dims[i + 1]) for _ in range(depths[i])]  # Provide both in_channels and dim
+                *[ConvNeXtBlock(dims[i], dims[i + 1]) for _ in range(depths[i])]
             )
             self.stages.append(stage)
         
