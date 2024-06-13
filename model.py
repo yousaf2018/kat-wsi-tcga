@@ -177,7 +177,7 @@ class KAT(nn.Module):
         print(x.type())  # Should print something like torch.cuda.sparse.FloatTensor
 
         # Convert to dense tensor if sparse
-        if x.is_sparse:
+        if 'sparse' in x.type():
             x = x.to_dense()
 
         # Apply permutation assuming x is dense
