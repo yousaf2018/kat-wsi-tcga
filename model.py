@@ -3,7 +3,6 @@ from torch import nn, einsum
 from einops import rearrange, repeat
 import copy
 
-# Define your ConvNeXt model
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels, dim):
         super().__init__()
@@ -19,7 +18,6 @@ class ConvNeXt(nn.Module):
         x = self.conv2(x)
         x = self.norm(x)
         return x
-
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
@@ -137,7 +135,6 @@ class KATBlocks(nn.Module):
 
         return k_reps, clst
 
-
 class KAT(nn.Module):
     def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls',
                  dim_head=64, dropout=0.5, emb_dropout=0.):
@@ -171,17 +168,13 @@ class KAT(nn.Module):
 
         x = self.dropout(x)
 
-        # Convert to dense tensor if sparse
-        if 'sparse' in x.type():
-            x = x.to_dense()
-
         # Ensure x is treated as a dense tensor
         x = x.to_dense() if x.is_sparse else x
 
         # Diagnostic print to verify tensor properties
         print(f"Tensor type before permute: {x.type()}, Shape: {x.shape}")
 
-        # Perform tensor permutation (assuming x is dense)
+        # Adjust based on actual shape of x
         x = x.permute(0, 2, 1)  # Adjust based on actual shape of x
         x = self.convnext(x)
         x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
@@ -197,7 +190,6 @@ def kat_inference(kat_model, data):
     kmasks = data[3].int().cuda(non_blocking=True)
 
     return kat_model(feats, rd, masks, kmasks)
-
 class KATCL(nn.Module):
     def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls',
                  dim_head=64, dropout=0.5, emb_dropout=0.,
