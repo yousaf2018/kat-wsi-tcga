@@ -175,7 +175,10 @@ class KAT(nn.Module):
         if 'sparse' in x.type():
             x = x.to_dense()
 
-        # Check the tensor type and shape
+        # Ensure x is treated as a dense tensor
+        x = x.to_dense() if x.is_sparse else x
+
+        # Check the tensor type and shape after conversion
         print(f"Tensor type: {x.type()}, Shape: {x.shape}")
 
         # Perform tensor permutation (assuming x is dense)
