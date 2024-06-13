@@ -147,14 +147,15 @@ class ConvNeXtBlock(nn.Module):
         x = rearrange(x, 'b h w c -> b c h w')
         return x + shortcut
 
-
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels, out_channels, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768]):
         super().__init__()
         
+        # Check if lengths are compatible
         if len(depths) != len(dims) - 1:
             raise ValueError("Length of depths list should be one less than dims list for stage transitions.")
         
+        # Initialize stem layers
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
             nn.Conv2d(in_channels, dims[0], kernel_size=4, stride=4),
@@ -162,30 +163,36 @@ class ConvNeXt(nn.Module):
         )
         self.downsample_layers.append(stem)
         
+        # Initialize downsample layers and stages
+        self.stages = nn.ModuleList()
         for i in range(len(depths)):
             downsample_layer = nn.Sequential(
                 nn.LayerNorm(dims[i], eps=1e-6),
                 nn.Conv2d(dims[i], dims[i + 1], kernel_size=2, stride=2)
             )
             self.downsample_layers.append(downsample_layer)
-
-        self.stages = nn.ModuleList()
-        for i in range(len(depths)):
+            
             stage = nn.Sequential(
-                *[ConvNeXtBlock(dims[i], dims[i + 1]) for _ in range(depths[i])]
+                *[ConvNeXtBlock(dims[i + 1]) for _ in range(depths[i])]  # Note: dims[i + 1] for next stage
             )
             self.stages.append(stage)
         
+        # Final normalization and linear layer
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
         self.fc = nn.Linear(dims[-1], out_channels)
 
     def forward(self, x):
+        # Forward pass through downsample layers and stages
         for downsample, stage in zip(self.downsample_layers, self.stages):
             x = downsample(x)
             x = stage(x)
+        
+        # Global average pooling
         x = rearrange(x, 'b c h w -> b (h w) c')
         x = self.norm(x)
         x = x.mean(dim=1)
+        
+        # Linear layer for classification
         x = self.fc(x)
         return x
 
