@@ -171,26 +171,25 @@ class KAT(nn.Module):
 
         x = self.dropout(x)
 
-        # Convert sparse tensor to dense if necessary
+        # Convert to dense tensor if sparse
         if 'sparse' in x.type():
             x = x.to_dense()
 
         # Ensure x is treated as a dense tensor
         x = x.to_dense() if x.is_sparse else x
 
-        # Check the tensor type and shape after conversion
-        print(f"Tensor type: {x.type()}, Shape: {x.shape}")
+        # Diagnostic print to verify tensor properties
+        print(f"Tensor type before permute: {x.type()}, Shape: {x.shape}")
 
         # Perform tensor permutation (assuming x is dense)
-        x = x.permute(0, 3, 1, 2)  # Adjust based on actual shape of x
+        x = x.permute(0, 2, 3, 1)  # Adjust based on actual shape of x
         x = self.convnext(x)
-        x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
+        x = x.permute(0, 3, 1, 2)  # Adjust output shape to match KAT input
 
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
         return k_reps, self.mlp_head(clst[:, 0])
 
-    
 def kat_inference(kat_model, data):
     feats = data[0].float().cuda(non_blocking=True)
     rd = data[1].float().cuda(non_blocking=True)
