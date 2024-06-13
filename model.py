@@ -200,9 +200,6 @@ def kat_inference(kat_model, data):
     
 
 class KATCL(nn.Module):
-    """
-    Build a BYOL model for the kernels.
-    """
     def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls',
                  dim_head=64, dropout=0.5, emb_dropout=0.,
                  byol_hidden_dim=512, byol_pred_dim=256, momentum=0.99):
@@ -210,31 +207,35 @@ class KATCL(nn.Module):
         super(KATCL, self).__init__()
 
         self.momentum = momentum
-        # create the online encoder
-        # num_classes is the output fc dimension, zero-initialize last BNs
-        self.online_kat = KAT(num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal, pool, dim_head, dropout, emb_dropout)
-        self.online_projector = nn.Sequential(nn.Linear(dim, byol_hidden_dim, bias=False),
-                                       nn.LayerNorm(byol_hidden_dim),
-                                       nn.GELU(), 
-                                       nn.Dropout(dropout),
-                                       nn.Linear(byol_hidden_dim, byol_pred_dim))  # output layer
 
-        # create the target encoder
+        # Create the online encoder
+        self.online_kat = KAT(num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal, pool, dim_head, dropout, emb_dropout)
+        self.online_projector = nn.Sequential(
+            nn.Linear(dim, byol_hidden_dim, bias=False),
+            nn.LayerNorm(byol_hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(byol_hidden_dim, byol_pred_dim)
+        )
+
+        # Create the target encoder
         self.target_kat = copy.deepcopy(self.online_kat)
         self.target_projector = copy.deepcopy(self.online_projector)
 
-        # freeze target encoder
-        for params in self.target_kat.parameters():
-            params.requires_grad = False
-        for params in self.target_projector.parameters():
-            params.requires_grad = False
+        # Freeze target encoder
+        for param in self.target_kat.parameters():
+            param.requires_grad = False
+        for param in self.target_projector.parameters():
+            param.requires_grad = False
 
-        # build a 2-layer predictor
-        self.predictor = nn.Sequential(nn.Linear(byol_pred_dim, byol_hidden_dim, bias=False),
-                                       nn.LayerNorm(byol_hidden_dim),
-                                       nn.GELU(), 
-                                       nn.Dropout(dropout),
-                                       nn.Linear(byol_hidden_dim, byol_pred_dim))  # output layer
+        # Build a 2-layer predictor
+        self.predictor = nn.Sequential(
+            nn.Linear(byol_pred_dim, byol_hidden_dim, bias=False),
+            nn.LayerNorm(byol_hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(byol_hidden_dim, byol_pred_dim)
+        )
 
     @torch.no_grad()
     def _update_moving_average(self):
@@ -244,17 +245,22 @@ class KATCL(nn.Module):
         for online_params, target_params in zip(self.online_projector.parameters(), self.target_projector.parameters()):
             target_params.data = target_params.data * self.momentum + online_params.data * (1 - self.momentum)
 
-
     def forward(self, x1, x2):
-        # compute features for one view
-        online_k1, o1 = kat_inference(self.online_kat, x1)  
-        online_z1 = self.online_projector(torch.cat(online_k1, dim=1)) 
-        p1 = self.predictor(online_z1) 
+        # Compute features for one view (online)
+        online_k1, o1 = kat_inference(self.online_kat, x1)
+
+        # Project and predict using online projector
+        online_z1 = self.online_projector(torch.cat(online_k1, dim=1))
+        p1 = self.predictor(online_z1)
 
         with torch.no_grad():
+            # Update the target encoder
             self._update_moving_average()
-            target_k2, _ = kat_inference(self.target_kat, x2)  
-            target_z2 = self.target_projector(torch.cat(target_k2, dim=1)) 
+
+            # Compute features for the other view (target)
+            target_k2, _ = kat_inference(self.target_kat, x2)
             
+        # Project using target projector
+        target_z2 = self.target_projector(torch.cat(target_k2, dim=1))
+
         return p1, o1, target_z2
- 
