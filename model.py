@@ -128,9 +128,9 @@ class KATBlocks(nn.Module):
 
 
 class ConvNeXtBlock(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, in_channels, dim):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim) # depthwise conv
+        self.dwconv = nn.Conv2d(in_channels, dim, kernel_size=7, padding=3, groups=in_channels) # depthwise conv
         self.norm = nn.LayerNorm(dim)
         self.pwconv1 = nn.Linear(dim, 4 * dim)
         self.act = nn.GELU()
@@ -146,6 +146,7 @@ class ConvNeXtBlock(nn.Module):
         x = self.pwconv2(x)
         x = rearrange(x, 'b h w c -> b c h w')
         return x + shortcut
+
 
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels, out_channels, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768]):
