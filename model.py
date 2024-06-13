@@ -182,9 +182,9 @@ class KAT(nn.Module):
         print(f"Tensor type before permute: {x.type()}, Shape: {x.shape}")
 
         # Perform tensor permutation (assuming x is dense)
-        x = x.permute(0, 2, 3, 1)  # Adjust based on actual shape of x
+        x = x.permute(0, 2, 1)  # Adjust based on actual shape of x
         x = self.convnext(x)
-        x = x.permute(0, 3, 1, 2)  # Adjust output shape to match KAT input
+        x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
 
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
@@ -197,7 +197,6 @@ def kat_inference(kat_model, data):
     kmasks = data[3].int().cuda(non_blocking=True)
 
     return kat_model(feats, rd, masks, kmasks)
-    
 
 class KATCL(nn.Module):
     def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls',
