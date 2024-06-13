@@ -3,15 +3,15 @@ from torch import nn, einsum
 from einops import rearrange, repeat
 import copy
 
+# Define ConvNeXt model
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels, dim):
         super().__init__()
-        # Example structure (adjust as per your specific ConvNeXt implementation)
         self.conv1 = nn.Conv2d(in_channels, dim, kernel_size=3, padding=1)
         self.relu = nn.ReLU()
         self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
         self.norm = nn.BatchNorm2d(dim)
-        
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.relu(x)
@@ -19,6 +19,7 @@ class ConvNeXt(nn.Module):
         x = self.norm(x)
         return x
 
+# PreNorm layer
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
@@ -28,7 +29,7 @@ class PreNorm(nn.Module):
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
 
-
+# FeedForward layer
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout=0.):
         super().__init__()
@@ -43,7 +44,7 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
+# KernelAttention layer
 class KernelAttention(nn.Module):
     def __init__(self, dim, heads=8, dim_head=64, dropout=0.):
         super().__init__()
@@ -70,6 +71,7 @@ class KernelAttention(nn.Module):
         k_q, k_k, k_v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), k_kqv)
         c_q, _, _ = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), c_kqv)
 
+        # Information summary flow (ISF) -- Eq.2
         dots = einsum('b h i d, b h j d -> b h i j', t_q, k_k) * self.scale
         if att_mask is not None:
             dots = dots.masked_fill(att_mask, torch.tensor(-1e9))
@@ -77,6 +79,7 @@ class KernelAttention(nn.Module):
         att_out = einsum('b h i j, b h j d -> b h i d', attn, k_v)
         att_out = rearrange(att_out, 'b h n d -> b n (h d)')
 
+        # Information distribution flow (IDF) -- Eq.3
         k_dots = einsum('b h i d, b h j d -> b h i j', k_q, t_k) * self.scale
         if att_mask is not None:
             k_dots = k_dots.masked_fill(att_mask.permute(0, 1, 3, 2), torch.tensor(-1e9))
@@ -84,6 +87,7 @@ class KernelAttention(nn.Module):
         k_out = einsum('b h i j, b h j d -> b h i d', k_attn, t_v)
         k_out = rearrange(k_out, 'b h n d -> b n (h d)')
 
+        # Classification token -- Eq.4
         c_dots = einsum('b h i d, b h j d -> b h i j', c_q, k_k) * self.scale
         if att_mask is not None:
             c_dots = c_dots.masked_fill(att_mask[:, :, :1], torch.tensor(-1e9))
@@ -93,12 +97,12 @@ class KernelAttention(nn.Module):
 
         return self.to_out(att_out), self.to_out(k_out), self.to_out(c_out)
 
-
+# KATBlocks layer
 class KATBlocks(nn.Module):
     def __init__(self, npk, dim, depth, heads, dim_head, mlp_dim, dropout=0.):
         super().__init__()
         self.layers = nn.ModuleList([])
-        self.ms = npk  # initial scale factor of the Gaussian mask
+        self.ms = npk  # Initial scale factor of the Gaussian mask
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
@@ -135,6 +139,7 @@ class KATBlocks(nn.Module):
 
         return k_reps, clst
 
+# KAT model
 class KAT(nn.Module):
     def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls',
                  dim_head=64, dropout=0.5, emb_dropout=0.):
@@ -143,15 +148,16 @@ class KAT(nn.Module):
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.to_patch_embedding = nn.Linear(patch_dim, dim)
+
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.kernel_token = nn.Parameter(torch.randn(1, 1, dim))
         self.nk = num_kernal
+
         self.dropout = nn.Dropout(emb_dropout)
 
-        # Integrate ConvNeXt model
-        self.convnext = ConvNeXt(in_channels=3, dim=dim)  # Adjust in_channels as per your data
-
         self.kt = KATBlocks(num_pk, dim, depth, heads, dim_head, mlp_dim, dropout)
+        self.convnext = ConvNeXt(in_channels=8, dim=dim)  # Adjust in_channels based on your input data
+
         self.pool = pool
 
         self.mlp_head = nn.Sequential(
@@ -168,90 +174,10 @@ class KAT(nn.Module):
 
         x = self.dropout(x)
 
-        # Ensure x is treated as a dense tensor
-        x = x.to_dense() if x.is_sparse else x
-
-        # Diagnostic print to verify tensor properties
-        print(f"Tensor type before permute: {x.type()}, Shape: {x.shape}")
-
-        # Adjust based on actual shape of x
-        x = x.permute(0, 2, 1)  # Adjust based on actual shape of x
+        # Example usage of ConvNeXt
+        x = rearrange(x, 'b d n -> b n d')  # Assuming input is in the format (batch_size, channels, height, width)
         x = self.convnext(x)
-        x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
 
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
-        return k_reps, self.mlp_head(clst[:, 0])
-
-def kat_inference(kat_model, data):
-    feats = data[0].float().cuda(non_blocking=True)
-    rd = data[1].float().cuda(non_blocking=True)
-    masks = data[2].int().cuda(non_blocking=True)
-    kmasks = data[3].int().cuda(non_blocking=True)
-
-    return kat_model(feats, rd, masks, kmasks)
-class KATCL(nn.Module):
-    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls',
-                 dim_head=64, dropout=0.5, emb_dropout=0.,
-                 byol_hidden_dim=512, byol_pred_dim=256, momentum=0.99):
-
-        super(KATCL, self).__init__()
-
-        self.momentum = momentum
-
-        # Create the online encoder
-        self.online_kat = KAT(num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal, pool, dim_head, dropout, emb_dropout)
-        self.online_projector = nn.Sequential(
-            nn.Linear(dim, byol_hidden_dim, bias=False),
-            nn.LayerNorm(byol_hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(byol_hidden_dim, byol_pred_dim)
-        )
-
-        # Create the target encoder
-        self.target_kat = copy.deepcopy(self.online_kat)
-        self.target_projector = copy.deepcopy(self.online_projector)
-
-        # Freeze target encoder
-        for param in self.target_kat.parameters():
-            param.requires_grad = False
-        for param in self.target_projector.parameters():
-            param.requires_grad = False
-
-        # Build a 2-layer predictor
-        self.predictor = nn.Sequential(
-            nn.Linear(byol_pred_dim, byol_hidden_dim, bias=False),
-            nn.LayerNorm(byol_hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(byol_hidden_dim, byol_pred_dim)
-        )
-
-    @torch.no_grad()
-    def _update_moving_average(self):
-        for online_params, target_params in zip(self.online_kat.parameters(), self.target_kat.parameters()):
-            target_params.data = target_params.data * self.momentum + online_params.data * (1 - self.momentum)
-
-        for online_params, target_params in zip(self.online_projector.parameters(), self.target_projector.parameters()):
-            target_params.data = target_params.data * self.momentum + online_params.data * (1 - self.momentum)
-
-    def forward(self, x1, x2):
-        # Compute features for one view (online)
-        online_k1, o1 = kat_inference(self.online_kat, x1)
-
-        # Project and predict using online projector
-        online_z1 = self.online_projector(torch.cat(online_k1, dim=1))
-        p1 = self.predictor(online_z1)
-
-        with torch.no_grad():
-            # Update the target encoder
-            self._update_moving_average()
-
-            # Compute features for the other view (target)
-            target_k2, _ = kat_inference(self.target_kat, x2)
-            
-        # Project using target projector
-        target_z2 = self.target_projector(torch.cat(target_k2, dim=1))
-
-        return p1, o1, target_z2
+        return k_reps
