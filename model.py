@@ -173,7 +173,14 @@ class KAT(nn.Module):
 
         x = self.dropout(x)
 
-        # Assuming x has shape (batch_size, height, width, channels) initially
+        # Check tensor type
+        print(x.type())  # Should print something like torch.cuda.sparse.FloatTensor
+
+        # Convert to dense tensor if sparse
+        if x.is_sparse:
+            x = x.to_dense()
+
+        # Apply permutation assuming x is dense
         x = x.permute(0, 3, 1, 2)  # Adjust based on actual shape of x
         x = self.convnext(x)
         x = x.permute(0, 2, 3, 1)  # Adjust output shape to match KAT input
