@@ -20,7 +20,7 @@ import torch.backends.cudnn as cudnn
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
-from model import KAT, kat_inference
+from model import KATWithConvNeXt, kat_inference
 from loader import KernelWSILoader
 from loader import DistributedWeightedSampler
 from utils import *
@@ -198,7 +198,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     args.input_dim = train_set.get_feat_dim()
     # create model
-    model = KAT(
+    model = KATWithConvNeXt(
         num_pk=args.npk,
         patch_dim=args.input_dim,
         num_classes=args.num_classes, 
