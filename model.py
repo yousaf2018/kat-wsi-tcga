@@ -96,6 +96,16 @@ class KernelAttention(nn.Module):
 
         return self.to_out(att_out), self.to_out(k_out), self.to_out(c_out)
 
+
+def kat_inference(kat_model, data):
+    feats = data[0].float().cuda(non_blocking=True)
+    rd = data[1].float().cuda(non_blocking=True)
+    masks = data[2].int().cuda(non_blocking=True)
+    kmasks = data[3].int().cuda(non_blocking=True)
+
+    return kat_model(feats, rd, masks, kmasks)
+
+
 # KATBlocks layer
 class KATBlocks(nn.Module):
     def __init__(self, npk, dim, depth, heads, dim_head, mlp_dim, dropout=0.):
