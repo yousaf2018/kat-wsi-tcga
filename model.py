@@ -3,7 +3,6 @@ from torch import nn, einsum
 from einops import rearrange, repeat
 import copy
 
-# Define ConvNeXt model
 class ConvNeXt(nn.Module):
     def __init__(self, in_channels, dim):
         super().__init__()
@@ -156,7 +155,7 @@ class KAT(nn.Module):
         self.dropout = nn.Dropout(emb_dropout)
 
         self.kt = KATBlocks(num_pk, dim, depth, heads, dim_head, mlp_dim, dropout)
-        self.convnext = ConvNeXt(in_channels=8, dim=dim)  # Adjust in_channels based on your input data
+        self.convnext = ConvNeXt(in_channels=8, dim=dim) 
 
         self.pool = pool
 
