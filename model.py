@@ -142,10 +142,8 @@ class KAT(nn.Module):
         # Ensure node_features has 9 channels if in_chans is 9
         x = self.convnext(node_features)
         
-        # Assuming x has shape [batch_size, channels, height, width]
-        # You might need to permute or reshape x to match the expected input for KATBlocks
-        # Example:
-        x = x.flatten(2).transpose(1, 2)  # Flatten and then transpose to [batch_size, num_patches, dim]
+        # Example reshaping or permutation to match expected dimensions
+        x = x.permute(0, 2, 3, 1)  # Adjust permute dimensions based on your specific requirements
 
         b = x.shape[0]
 
