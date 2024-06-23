@@ -166,6 +166,10 @@ def kat_inference(kat_model, data):
     rd = data[1].float().cuda(non_blocking=True)
     masks = data[2].int().cuda(non_blocking=True)
     kmasks = data[3].int().cuda(non_blocking=True)
+    
+    # Ensure masks and kmasks are converted to dense tensors if they are sparse
+    masks = masks.to_dense()
+    kmasks = kmasks.to_dense()
 
     return kat_model(feats, rd, masks, kmasks)
 
