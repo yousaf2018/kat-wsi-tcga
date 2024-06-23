@@ -169,6 +169,7 @@ class KAT(nn.Module):
             nn.Flatten(start_dim=2)
         )
 
+
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.kernel_token = nn.Parameter(torch.randn(1, 1, dim))
         self.nk = num_kernal
