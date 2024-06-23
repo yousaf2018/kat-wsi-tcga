@@ -121,9 +121,8 @@ class KAT(nn.Module):
 
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
-        # Ensure correct initialization of ConvNeXt model with the expected number of input channels
-        self.convnext = timm.create_model('convnext_base', pretrained=True, in_chans=1280, num_classes=dim)
-        # Adjust in_chans to match the expected number of channels in node_features
+        # Initialize ConvNeXt model with the correct number of input channels
+        self.convnext = timm.create_model('convnext_base', pretrained=True, in_chans=9, num_classes=dim)  # Adjust in_chans here
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.kernel_token = nn.Parameter(torch.randn(1, 1, dim))
@@ -140,7 +139,7 @@ class KAT(nn.Module):
         )
 
     def forward(self, node_features, krd, mask=None, kmask=None):
-        # Ensure node_features has 1280 channels if in_chans is 1280
+        # Ensure node_features has 9 channels if in_chans is 9
         x = self.convnext(node_features)
         b = x.shape[0]
 
