@@ -171,6 +171,12 @@ def kat_inference(kat_model, data):
     masks = masks.to_dense()
     kmasks = kmasks.to_dense()
 
+    # Print tensor types and dimensions for debugging
+    print("feats:", feats.type(), feats.dim(), feats.shape)
+    print("rd:", rd.type(), rd.dim(), rd.shape)
+    print("masks:", masks.type(), masks.dim(), masks.shape)
+    print("kmasks:", kmasks.type(), kmasks.dim(), kmasks.shape)
+
     return kat_model(feats, rd, masks, kmasks)
 
 class KATCL(nn.Module):
