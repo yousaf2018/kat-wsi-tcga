@@ -9,6 +9,7 @@ class PreNorm(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
+
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
 
@@ -22,6 +23,7 @@ class FeedForward(nn.Module):
             nn.Linear(hidden_dim, dim),
             nn.Dropout(dropout)
         )
+
     def forward(self, x):
         return self.net(x)
 
@@ -144,6 +146,7 @@ class KAT(nn.Module):
         
         # Assuming convnext output is [batch_size, channels, height, width]
         x = x.permute(0, 2, 3, 1)  # Change permutation order based on your specific requirements
+
         b, h, w, c = x.size()
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
@@ -152,7 +155,7 @@ class KAT(nn.Module):
         x = self.dropout(x)
         
         # Flatten x to [batch_size, height*width, channels] for KATBlocks
-        x = x.view(b, h * w, c)
+        x = rearrange(x, 'b h w c -> b (h w) c')
 
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
