@@ -194,6 +194,13 @@ class KAT(nn.Module):
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
         return k_reps, self.mlp_head(clst[:, 0])
+def kat_inference(kat_model, data):
+    feats = data[0].float().cuda(non_blocking=True)
+    rd = data[1].float().cuda(non_blocking=True)
+    masks = data[2].int().cuda(non_blocking=True)
+    kmasks = data[3].int().cuda(non_blocking=True)
+
+    return kat_model(feats, rd, masks, kmasks)
 
 class KATCL(nn.Module):
     """
