@@ -14,8 +14,14 @@ class PreNorm(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
+
     def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+        original_shape = x.shape
+        x = rearrange(x, 'b ... d -> (b ...) d')  # Flatten leading dimensions
+        x = self.norm(x)
+        x = self.fn(x, **kwargs)
+        x = rearrange(x, '(b ...) d -> b ... d', b=original_shape[0], ...)  # Restore original shape
+        return x
 
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout = 0.):
