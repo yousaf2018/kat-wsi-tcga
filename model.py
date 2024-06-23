@@ -142,16 +142,18 @@ class KAT(nn.Module):
         # Ensure node_features has 9 channels if in_chans is 9
         x = self.convnext(node_features)
         
-        # Example reshaping or permutation to match expected dimensions
         # Assuming convnext output is [batch_size, channels, height, width]
         x = x.permute(0, 2, 3, 1)  # Change permutation order based on your specific requirements
-
-        b = x.shape[0]
+        b, h, w, c = x.size()
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
         kernel_tokens = repeat(self.kernel_token, '() () d -> b k d', b=b, k=self.nk)
 
         x = self.dropout(x)
+        
+        # Flatten x to [batch_size, height*width, channels] for KATBlocks
+        x = x.view(b, h * w, c)
+
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
         return k_reps, self.mlp_head(clst[:, 0])
