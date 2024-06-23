@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from einops import repeat
 import copy
+from torch import einsum
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
