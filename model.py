@@ -17,10 +17,9 @@ class PreNorm(nn.Module):
 
     def forward(self, x, **kwargs):
         original_shape = x.shape
-        x = rearrange(x, 'b ... d -> (b ...) d')  # Flatten leading dimensions
         x = self.norm(x)
         x = self.fn(x, **kwargs)
-        x = rearrange(x, '(b ...) d -> b ... d', b=original_shape[0], ...)  # Restore original shape
+        x = x.view(original_shape)  # Restore original shape
         return x
 
 class FeedForward(nn.Module):
