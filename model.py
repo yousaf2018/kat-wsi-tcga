@@ -180,7 +180,7 @@ def kat_inference(kat_model, data):
     # Ensure node_features is a dense tensor before passing to kat_model
     node_features = feats  # Assuming feats is node_features in your context
 
-    # Initialize x outside try block
+    # Initialize x to None
     x = None
 
     # Pass through the model
