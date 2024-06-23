@@ -128,12 +128,15 @@ class KATBlocks(nn.Module):
 
 
 class KAT(nn.Module):
-    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool = 'cls', dim_head = 64, dropout = 0.5, emb_dropout = 0.):
+    def __init__(self, num_pk, patch_dim, num_classes, dim, depth, heads, mlp_dim, num_kernal=16, pool='cls', dim_head=64, dropout=0.5, emb_dropout=0.):
         super().__init__()
 
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
+        # Initialize the ConvNeXt model with the correct number of input channels
         self.convnext = timm.create_model('convnext_base', pretrained=True, in_chans=patch_dim, num_classes=dim)
+        # patch_dim should match the number of channels in node_features
+
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.kernel_token = nn.Parameter(torch.randn(1, 1, dim))
         self.nk = num_kernal
@@ -145,21 +148,20 @@ class KAT(nn.Module):
 
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(dim),
-            nn.Linear(dim, num_classes) 
+            nn.Linear(dim, num_classes)
         )
 
     def forward(self, node_features, krd, mask=None, kmask=None):
         x = self.convnext(node_features)
         b = x.shape[0]
 
-        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
-        kernel_tokens = repeat(self.kernel_token, '() () d -> b k d', b = b, k = self.nk)
+        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
+        kernel_tokens = repeat(self.kernel_token, '() () d -> b k d', b=b, k=self.nk)
 
         x = self.dropout(x)
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
         return k_reps, self.mlp_head(clst[:, 0])
-
 
 def kat_inference(kat_model, data):
     feats = data[0].float().cuda(non_blocking=True)
