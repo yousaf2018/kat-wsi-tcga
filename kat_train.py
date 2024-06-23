@@ -142,19 +142,19 @@ def main_worker(gpu, ngpus_per_node, args):
     graph_model_path = get_kat_path(args, args.prefix_name)
 
     checkpoint = []
-    if not args.redo:
-        checkpoint_path = os.path.join(
-            graph_model_path, 'checkpoint.pth.tar')
-        if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(
-                checkpoint_path, map_location=torch.device('cpu'))
-            print("=> loading checkpoint")
+    # if not args.redo:
+    #     checkpoint_path = os.path.join(
+    #         graph_model_path, 'checkpoint.pth.tar')
+    #     if os.path.exists(checkpoint_path):
+    #         checkpoint = torch.load(
+    #             checkpoint_path, map_location=torch.device('cpu'))
+    #         print("=> loading checkpoint")
 
     if checkpoint:
         args.start_epoch = checkpoint['epoch']
         if args.start_epoch >= args.num_epochs:
             print('model training is finished')
-            # return 0
+            return 0
         else:
             print('model train from epoch {}/{}'.format(args.start_epoch, args.num_epochs))
     else:
