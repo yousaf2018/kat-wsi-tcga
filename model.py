@@ -111,7 +111,7 @@ class KATBlocks(nn.Module):
     def __init__(self, npk, dim, depth, heads, dim_head, mlp_dim, dropout = 0., use_convnext=True):
         super().__init__()
         self.layers = nn.ModuleList([])
-        self.ms = npk # initial scale factor of the Gaussian mask
+        self.ms = npk  # initial scale factor of the Gaussian mask
         self.use_convnext = use_convnext
 
         for _ in range(depth):
@@ -135,8 +135,11 @@ class KATBlocks(nn.Module):
 
         k_reps = []
         for l_idx, (convnext, pn, attn, ff) in enumerate(self.layers):
-            x = convnext(x.permute(0, 2, 1).reshape(x.shape[0], self.dim, 1, -1)).reshape(x.shape[0], -1, self.dim).permute(0, 2, 1)  # Apply ConvNeXtBlock
-            x, kx, clst = pn(x), pn(kx), pn(clst)
+            if self.use_convnext:
+                # Reshape and permute to apply ConvNeXt
+                x = convnext(x.permute(0, 2, 1).reshape(x.shape[0], self.dim, 1, -1)).reshape(x.shape[0], -1, self.dim).permute(0, 2, 1)
+            # Apply LayerNorm correctly
+            x, kx, clst = pn(x.permute(0, 2, 1)).permute(0, 2, 1), pn(kx.permute(0, 2, 1)).permute(0, 2, 1), pn(clst.permute(0, 2, 1)).permute(0, 2, 1)
 
             soft_mask = torch.exp(-rd2 / (2*self.ms * 2**l_idx))
             x_, kx_, clst_ = attn(x, kx, soft_mask, clst, att_mask, l_idx)
