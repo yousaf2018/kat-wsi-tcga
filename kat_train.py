@@ -397,12 +397,15 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         target = label.cuda(non_blocking=True)
 
         # compute output
-        _, output = kat_inference(model, data)
+        output = kat_inference(model, data)
+        if output is None:
+            print(f"Skipping batch {i} due to inference error.")
+            continue
+        
         loss = criterion(output, target)
         
         # measure accuracy and record loss
         acc1, acc2 = accuracy(F.softmax(output, dim=1), target, topk=(1, 2))
-        # print(acc1, acc1)
         losses.update(loss.item(), target.size(0))
         top1.update(acc1[0], target.size(0))
         top2.update(acc2[0], target.size(0))
@@ -420,6 +423,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             progress.print(i)
 
     return top1.avg
+
 
 
 def evaluate(val_loader, model, criterion, args, prefix='Test'):

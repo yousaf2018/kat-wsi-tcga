@@ -186,7 +186,7 @@ def kat_inference(kat_model, data):
     # Pass through the model
     try:
         x = kat_model(node_features, rd, masks, kmasks)
-    except RuntimeError as e:
+    except Exception as e:
         print("Error during model forward pass:", e)
 
     return x
