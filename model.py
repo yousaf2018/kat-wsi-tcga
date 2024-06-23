@@ -161,35 +161,13 @@ class KAT(nn.Module):
 
         return k_reps, self.mlp_head(clst[:, 0])  # Return k_reps and MLP output
 
-def kat_inference(kat_model, data):
-    feats = data[0].float().cuda(non_blocking=True)
-    rd = data[1].float().cuda(non_blocking=True)
-    masks = data[2].int().cuda(non_blocking=True)
-    kmasks = data[3].int().cuda(non_blocking=True)
-    
-    # Convert masks and kmasks to dense tensors if they are sparse
-    masks = masks.to_dense()
-    kmasks = kmasks.to_dense()
-
-    # Print tensor types and dimensions for debugging
-    print("feats:", feats.type(), feats.dim(), feats.shape)
-    print("rd:", rd.type(), rd.dim(), rd.shape)
-    print("masks:", masks.type(), masks.dim(), masks.shape)
-    print("kmasks:", kmasks.type(), kmasks.dim(), kmasks.shape)
-
-    # Ensure node_features is a dense tensor before passing to kat_model
-    node_features = feats  # Assuming feats is node_features in your context
-
-    # Initialize x to None
-    x = None
-
-    # Pass through the model
+def kat_inference(model, data):
     try:
-        x = kat_model(node_features, rd, masks, kmasks)
+        output = model(data)
+        return output
     except Exception as e:
-        print("Error during model forward pass:", e)
-
-    return x
+        print(f"Error in kat_inference: {e}")
+        return None
 
 class KATCL(nn.Module):
     """
