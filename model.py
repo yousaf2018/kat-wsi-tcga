@@ -141,6 +141,12 @@ class KAT(nn.Module):
     def forward(self, node_features, krd, mask=None, kmask=None):
         # Ensure node_features has 9 channels if in_chans is 9
         x = self.convnext(node_features)
+        
+        # Assuming x has shape [batch_size, channels, height, width]
+        # You might need to permute or reshape x to match the expected input for KATBlocks
+        # Example:
+        x = x.flatten(2).transpose(1, 2)  # Flatten and then transpose to [batch_size, num_patches, dim]
+
         b = x.shape[0]
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
