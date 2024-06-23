@@ -143,7 +143,8 @@ class KAT(nn.Module):
         x = self.convnext(node_features)
         
         # Example reshaping or permutation to match expected dimensions
-        x = x.permute(0, 2, 3, 1)  # Adjust permute dimensions based on your specific requirements
+        # Assuming convnext output is [batch_size, channels, height, width]
+        x = x.permute(0, 2, 3, 1)  # Change permutation order based on your specific requirements
 
         b = x.shape[0]
 
