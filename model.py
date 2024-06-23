@@ -158,14 +158,9 @@ class KAT(nn.Module):
 
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
-        height = 224  # Example height of input patches
-        width = 224   # Example width of input patches
-
-        # Inside the KAT class constructor
-        patch_dim = (3, height, width)  # Example dimensions for an RGB image patch
-
+        # Example of correct input dimensions handling in KAT model
         self.to_patch_embedding = nn.Sequential(
-            nn.Conv2d(in_channels=patch_dim[0], out_channels=dim, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=3, out_channels=dim, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
