@@ -145,7 +145,7 @@ class KAT(nn.Module):
         x = self.convnext(node_features)
         
         # Assuming convnext output is [batch_size, channels, height, width]
-        x = x.permute(0, 2, 3, 1)  # Change permutation order based on your specific requirements
+        x = x.permute(0, 2, 3, 1).contiguous()  # Ensure contiguous after permute
 
         b, h, w, c = x.size()
 
@@ -159,7 +159,7 @@ class KAT(nn.Module):
 
         k_reps, clst = self.kt(x, kernel_tokens, krd, cls_tokens, mask, kmask)
 
-        return k_reps, self.mlp_head(clst[:, 0])
+        return k_reps, self.mlp_head(clst[:, 0])  # Return k_reps and MLP output
 
 def kat_inference(kat_model, data):
     feats = data[0].float().cuda(non_blocking=True)
