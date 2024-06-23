@@ -167,7 +167,7 @@ def kat_inference(kat_model, data):
     masks = data[2].int().cuda(non_blocking=True)
     kmasks = data[3].int().cuda(non_blocking=True)
     
-    # Ensure masks and kmasks are converted to dense tensors if they are sparse
+    # Convert masks and kmasks to dense tensors if they are sparse
     masks = masks.to_dense()
     kmasks = kmasks.to_dense()
 
@@ -177,7 +177,11 @@ def kat_inference(kat_model, data):
     print("masks:", masks.type(), masks.dim(), masks.shape)
     print("kmasks:", kmasks.type(), kmasks.dim(), kmasks.shape)
 
-    return kat_model(feats, rd, masks, kmasks)
+    # Ensure node_features is a dense tensor before passing to kat_model
+    node_features = feats  # Assuming feats is node_features in your context
+    x = kat_model(node_features, rd, masks, kmasks)
+
+    return x
 
 class KATCL(nn.Module):
     """
