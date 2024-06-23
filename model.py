@@ -162,10 +162,10 @@ class KAT(nn.Module):
         self.to_patch_embedding = nn.Sequential(
             nn.Conv2d(in_channels=9, out_channels=dim, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
+            # nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
             nn.Flatten(start_dim=2)
         )
 
