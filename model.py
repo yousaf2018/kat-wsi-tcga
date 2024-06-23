@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from einops import repeat
 import copy
-from torch import einsum
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
@@ -161,14 +160,15 @@ class KAT(nn.Module):
 
         # Example of correct input dimensions handling in KAT model
         self.to_patch_embedding = nn.Sequential(
-            nn.Conv2d(in_channels=9, out_channels=dim, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=1, out_channels=dim, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            # nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(),
-            # nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(),
+            nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
             nn.Flatten(start_dim=2)
         )
+
 
 
 
