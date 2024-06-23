@@ -179,7 +179,12 @@ def kat_inference(kat_model, data):
 
     # Ensure node_features is a dense tensor before passing to kat_model
     node_features = feats  # Assuming feats is node_features in your context
-    x = kat_model(node_features, rd, masks, kmasks)
+
+    # Pass through the model
+    try:
+        x = kat_model(node_features, rd, masks, kmasks)
+    except RuntimeError as e:
+        print("Error during model forward pass:", e)
 
     return x
 
