@@ -142,19 +142,19 @@ def main_worker(gpu, ngpus_per_node, args):
     graph_model_path = get_kat_path(args, args.prefix_name)
 
     checkpoint = []
-    # if not args.redo:
-    #     checkpoint_path = os.path.join(
-    #         graph_model_path, 'checkpoint.pth.tar')
-    #     if os.path.exists(checkpoint_path):
-    #         checkpoint = torch.load(
-    #             checkpoint_path, map_location=torch.device('cpu'))
-    #         print("=> loading checkpoint")
+    if not args.redo:
+        checkpoint_path = os.path.join(
+            graph_model_path, 'checkpoint.pth.tar')
+        if os.path.exists(checkpoint_path):
+            checkpoint = torch.load(
+                checkpoint_path, map_location=torch.device('cpu'))
+            print("=> loading checkpoint")
 
     if checkpoint:
         args.start_epoch = checkpoint['epoch']
         if args.start_epoch >= args.num_epochs:
             print('model training is finished')
-            # return 0
+            return 0
         else:
             print('model train from epoch {}/{}'.format(args.start_epoch, args.num_epochs))
     else:
@@ -283,7 +283,7 @@ def main_worker(gpu, ngpus_per_node, args):
             two_augments=False
             )
         valid_loader = torch.utils.data.DataLoader(
-            valid_set, batch_size=args.batch_size, shuffle=True,
+            valid_set, batch_size=args.batch_size, shuffle=False,
             num_workers=args.num_workers, drop_last=False, sampler=None
             )
         
@@ -301,7 +301,7 @@ def main_worker(gpu, ngpus_per_node, args):
             two_augments=False
             )
         test_loader = torch.utils.data.DataLoader(
-            test_set, batch_size=args.batch_size, shuffle=True,
+            test_set, batch_size=args.batch_size, shuffle=False,
             num_workers=args.num_workers, drop_last=False, sampler=None
             )
 
@@ -321,7 +321,7 @@ def main_worker(gpu, ngpus_per_node, args):
         with open(os.path.join(graph_model_path,  'eval.pkl'), 'wb') as f:
             pickle.dump({'acc':test_acc, 'cm':test_cm, 'auc':test_auc,'data':test_data}, f)
 
-        # return 0
+        return 0
 
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                     and args.rank == 0):    
