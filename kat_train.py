@@ -283,7 +283,7 @@ def main_worker(gpu, ngpus_per_node, args):
             two_augments=False
             )
         valid_loader = torch.utils.data.DataLoader(
-            valid_set, batch_size=args.batch_size, shuffle=False,
+            valid_set, batch_size=args.batch_size, shuffle=True,
             num_workers=args.num_workers, drop_last=False, sampler=None
             )
         
@@ -301,7 +301,7 @@ def main_worker(gpu, ngpus_per_node, args):
             two_augments=False
             )
         test_loader = torch.utils.data.DataLoader(
-            test_set, batch_size=args.batch_size, shuffle=False,
+            test_set, batch_size=args.batch_size, shuffle=True,
             num_workers=args.num_workers, drop_last=False, sampler=None
             )
 
