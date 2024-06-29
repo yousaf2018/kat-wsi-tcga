@@ -468,9 +468,11 @@ def evaluate(val_loader, model, criterion, args, prefix='Test'):
     y_preds = torch.cat(y_preds)
     y_labels = torch.cat(y_labels)
     confuse_mat, auc = calc_classification_metrics(y_preds, y_labels, args.num_classes, prefix=prefix)
-    
-    print("Confusion matrix -->", confuse_mat, auc)
-    return top1.avg, confuse_mat, auc, {'pred':y_preds, 'label':y_labels}
+    if confuse_mat == 1:
+        return
+    else:
+        print("Confusion matrix -->", confuse_mat, auc)
+        return top1.avg, confuse_mat, auc, {'pred':y_preds, 'label':y_labels}
     
 
 if __name__ == "__main__":
