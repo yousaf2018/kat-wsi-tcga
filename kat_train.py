@@ -406,7 +406,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     return top1.avg
 
 
-def evaluate(val_loader, model, criterion, args, prefix='Test'):
+def evaluate(val_loader, model, criterion, args, prefix='Val'):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
@@ -442,8 +442,8 @@ def evaluate(val_loader, model, criterion, args, prefix='Test'):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
-                progress.print(i)
+            # if i % args.print_freq == 0:
+            progress.print(i)
         
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@2 {top2.avg:.3f} Sample per Second {time:.3f}'
