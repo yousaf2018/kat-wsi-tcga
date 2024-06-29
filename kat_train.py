@@ -154,7 +154,7 @@ def main_worker(gpu, ngpus_per_node, args):
         args.start_epoch = checkpoint['epoch']
         if args.start_epoch >= args.num_epochs:
             print('model training is finished')
-            return 0
+            # return 0
         else:
             print('model train from epoch {}/{}'.format(args.start_epoch, args.num_epochs))
     else:
@@ -321,7 +321,7 @@ def main_worker(gpu, ngpus_per_node, args):
         with open(os.path.join(graph_model_path,  'eval.pkl'), 'wb') as f:
             pickle.dump({'acc':test_acc, 'cm':test_cm, 'auc':test_auc,'data':test_data}, f)
 
-        return 0
+        # return 0
 
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                     and args.rank == 0):    
