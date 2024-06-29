@@ -45,7 +45,7 @@ def arg_parse():
                         help='Number of workers to load data.')
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='Learning rate.')
-    parser.add_argument('--shuffle-train', default=False, action='store_true',
+    parser.add_argument('--shuffle-train', default=True, action='store_true',
                         help='Shuffle the train list')
     parser.add_argument('--weighted-sample', action='store_true',
                         help='Balance the sample number from different types\
