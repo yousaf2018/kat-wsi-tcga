@@ -400,8 +400,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
-            progress.print(i)
+        # if i % args.print_freq == 0:
+        progress.print(i)
 
     return top1.avg
 
