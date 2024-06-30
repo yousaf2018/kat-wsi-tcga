@@ -406,7 +406,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     return top1.avg
 
 
-def evaluate(val_loader, model, criterion, args, prefix='Val'):
+def evaluate(val_loader, model, criterion, args, prefix='Valid'):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
