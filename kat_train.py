@@ -171,8 +171,8 @@ def main_worker(gpu, ngpus_per_node, args):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
-
-    graph_list_dir = os.path.join(get_graph_list_path(args), args.fold_name)
+    print(args)
+    graph_list_dir = os.path.join(get_graph_list_path(args), args.fold)
     # train graph data
     train_set = KernelWSILoader(
             os.path.join(graph_list_dir, 'train'),
