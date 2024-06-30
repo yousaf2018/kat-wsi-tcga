@@ -19,7 +19,7 @@ SAMPLE:
   SAVE_MASK: false # reserved config for segmentation
 CNN:
   ARCH: 'efficientnet-b0'
-  PRETRAINED: false
+  PRETRAINED: true
   FREEZE_FEAT: true
   CONTRASTIVE: true
   BYOL:
@@ -29,7 +29,7 @@ CNN:
     FIX_PRED_LR: True
 FEATURE:
   STEP: 224
-  MAX_NODES: 4096
+  MAX_NODES: 1024
 VIT:
   DEPTH: 4
   HEADS: 8
@@ -39,7 +39,7 @@ VIT:
   POOL: 'cls'
 KAT:
   KERNEL_NUM : 64
-  PATCH_PER_KERNEL : 144
+  PATCH_PER_KERNEL : 512
   BYOL:
     PROJECTOR_DIM : 256
     NODE_AUG : 0.6
