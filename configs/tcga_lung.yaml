@@ -26,7 +26,7 @@ CNN:
     HIDDEN_DIM: 2048
     PRE_DIM: 256
     M_DECAY: 0.99
-    FIX_PRED_LR: True
+    FIX_PRED_LR: false
 FEATURE:
   STEP: 224
   MAX_NODES: 1024
